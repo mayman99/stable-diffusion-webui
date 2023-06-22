@@ -340,6 +340,13 @@ def configure_cors_middleware(app):
         cors_options["allow_origins"] = cmd_opts.cors_allow_origins.split(',')
     if cmd_opts.cors_allow_origins_regex:
         cors_options["allow_origin_regex"] = cmd_opts.cors_allow_origins_regex
+    
+    cors_options["allow_origins"] = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://localhost:3000"
+    ]
+
     app.add_middleware(CORSMiddleware, **cors_options)
 
 
