@@ -141,9 +141,12 @@ def recombine_images(input_dir, output_file_path, session=None):
         for file_name in file_names:
             # i = int(file_name[-5])
             # j = int(file_name[-7])
+            # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
+            
+            parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
 
-            i = int(file_name[-10])
-            j = int(file_name[-12])
+            # Extract values for i and j
+            i, j = map(int, parts)
 
             # Update max_i and max_j if necessary
             max_i = max(max_i, i)
