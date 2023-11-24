@@ -610,13 +610,13 @@ class Api:
         image = read_image_from_s3(session, bucketname, image_path)
         if image is None:
             raise HTTPException(status_code=404, detail="Image not found")
-        print("image read from s3")
-        
+        print("image read from s3", image)
+    
         output_path = f"/workspace/outputs/{image_path}"
         # make a new dir
         if not os.path.exists(output_path):
             os.makedirs(output_path)
-        divide_and_save_from_memory(image, output_path, image_path, 512)
+        divide_and_save_from_memory(image, output_path, image_path, 128)
 
         recombine_images(output_path, f"upscaled_{image_path}", "/workspace/outputs/", session)
         return
