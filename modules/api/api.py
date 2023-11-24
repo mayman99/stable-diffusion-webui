@@ -655,7 +655,7 @@ class Api:
 
         # Upscale each image
         with self.queue_lock:
-            result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=False, **reqDict)
+            result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
             print(result)
             recombine_images(divided_upscaled_images_path, result_image_path, "/workspace/outputs/", session)
     
