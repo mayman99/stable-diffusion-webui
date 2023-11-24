@@ -139,11 +139,11 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
 
         for file_name in file_names:
-            i = int(file_name[-5])
-            j = int(file_name[-7])
+            # i = int(file_name[-5])
+            # j = int(file_name[-7])
 
-            # i = int(file_name[10])
-            # j = int(file_name[-12])
+            i = int(file_name[10])
+            j = int(file_name[-12])
 
             # Update max_i and max_j if necessary
             max_i = max(max_i, i)
@@ -154,8 +154,8 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
-    first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-    # first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
+    # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
+    first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
     image_height, image_width = first_patch.shape[:2]
 
     # Create a blank canvas for the final image
@@ -164,8 +164,8 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
     for row in range(rows):
         for col in range(columns):
             # Open each individual image
-            image_path = f"{input_dir}/{row}_{col}.png"
-            # image_path = f"{input_dir}/{row}_{col}-0000.png"
+            # image_path = f"{input_dir}/{row}_{col}.png"
+            image_path = f"{input_dir}/{row}_{col}-0000.png"
             img = Image.open(image_path)
 
             # Calculate the position to paste the image on the canvas
