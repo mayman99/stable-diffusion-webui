@@ -618,7 +618,7 @@ class Api:
 
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
     
-    def upscale_api(self, req: models.ExtrasBatchImagesRequest):
+    def upscale_api(self, req: models.UpscaleRequest):
         aws_access_key_id="AKIAT4UQTLJVAI4GD256"
         aws_secret_access_key="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"
         session = boto3.Session(
