@@ -661,7 +661,7 @@ class Api:
             print(result)
             recombine_images(divided_upscaled_images_path, result_image_path, session)
     
-        return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
+        return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
     def pnginfoapi(self, req: models.PNGInfoRequest):
         if(not req.image.strip()):
