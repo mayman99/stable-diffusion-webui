@@ -209,6 +209,7 @@ class Api:
         self.app = app
         self.queue_lock = queue_lock
         api_middleware(self.app)
+        self.add_api_route("/sdapi/v1/upscale", self.upscale_api, methods=["POST"], response_model=models.UpscaleResponse)
         self.add_api_route("/sdapi/v1/txt2img", self.text2imgapi, methods=["POST"], response_model=models.TextToImageResponse)
         self.add_api_route("/sdapi/v1/img2img", self.img2imgapi, methods=["POST"], response_model=models.ImageToImageResponse)
         self.add_api_route("/sdapi/v1/extra-single-image", self.extras_single_image_api, methods=["POST"], response_model=models.ExtrasSingleImageResponse)
@@ -465,6 +466,33 @@ class Api:
         reqDict = setUpscalers(req)
 
         image_list = reqDict.pop('imageList', [])
+        image_folder = [decode_base64_to_image(x.data) for x in image_list]
+
+        with self.queue_lock:
+            result = postprocessing.run_extras(extras_mode=1, image_folder=image_folder, image="", input_dir="", output_dir="", save_output=False, **reqDict)
+
+        return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
+    
+    def upscale_api(self, req: models.ExtrasBatchImagesRequest):
+        print("upscale request recived")
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id="AKIAT4UQTLJVAI4GD256",
+            aws_secret_access_key="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"
+            )
+        reqDict = setUpscalers(req)
+        image_path = reqDict.pop('imagePath', "")
+        print(image_path)
+        if image_path == "":
+            raise HTTPException(status_code=404, detail="Image not found")
+        return
+
+        # TODO: check if image_path is a valid path
+        # Read the image from the path
+        # divide the image into 512x512 tiles
+        # upscale each tile
+        # stitch the tiles back together
+        # write back the image
         image_folder = [decode_base64_to_image(x.data) for x in image_list]
 
         with self.queue_lock:
