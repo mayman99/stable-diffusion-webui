@@ -17,7 +17,7 @@ from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
 import boto3
 
-from utils import read_image_from_s3, divide_and_save_from_memory, recombine_images
+from modules.utils import read_image_from_s3, divide_and_save_from_memory, recombine_images
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
