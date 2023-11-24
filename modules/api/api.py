@@ -60,13 +60,13 @@ def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
     response = object.get()
     file_stream = response['Body']
     im = Image.open(file_stream)
-    return im
+    return np.array(im)
 
 def divide_and_save_from_memory(image, output_dir, file_name, patch_size=512):
     ext = file_name.split(".")[-1]
 
     # Get the image dimensions
-    height, width = image.size
+    height, width = image.shape[:2]
 
     # Calculate the number of patches in each dimension
     num_patches_height = height // patch_size
