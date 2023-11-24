@@ -121,7 +121,7 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
             # Update max_i and max_j if necessary
             max_i = max(max_i, int(i))
             max_j = max(max_j, int(j))
-        return max_i, max_j
+        return max_i+1, max_j+1
 
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
