@@ -134,7 +134,7 @@ def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-
     pil_image.save(file_stream, format='png')
     object.put(Body=file_stream.getvalue())
 
-def recombine_images(input_dir, output_file_path, output_dir="", session=None):
+def recombine_images(input_dir, output_file_path, session=None):
     def rows_columns(file_names):
         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
 
