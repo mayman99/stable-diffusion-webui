@@ -634,7 +634,7 @@ class Api:
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
-
+        image_path_no_ext = image_path.split('.')[:-4]
         print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
@@ -644,9 +644,9 @@ class Api:
             raise HTTPException(status_code=404, detail="Image not found")
         print("image read from s3", image)
     
-        divided_images_path = f"/workspace/outputs/{image_path.split('.')[0]}/original"
-        divided_upscaled_images_path = f"/workspace/outputs/{image_path.split('.')[0]}/upscaled"
-        result_image_path = f"/workspace/outputs/{image_path.split('.')[0]}/result"
+        divided_images_path = f"/workspace/outputs/{image_path_no_ext}/original"
+        divided_upscaled_images_path = f"/workspace/outputs/{image_path_no_ext}/upscaled"
+        result_image_path = f"/workspace/outputs/{image_path_no_ext}/result"
 
         # make a new dir
         if not os.path.exists(divided_images_path):
