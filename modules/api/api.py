@@ -17,6 +17,7 @@ from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
 import boto3
 import cv2
+import numpy as np
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
