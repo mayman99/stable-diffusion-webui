@@ -125,7 +125,8 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
 
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
-    
+    rows +=1
+    columns +=1 
     first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
     image_height, image_width = first_patch.shape[:2]
