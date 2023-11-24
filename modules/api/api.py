@@ -632,8 +632,6 @@ class Api:
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
 
-        # HARD CODED FOR TEST
-        image_path = "2023-11-24T12:16:15.682Z-arabic_2.png"
         print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
