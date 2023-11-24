@@ -634,7 +634,7 @@ class Api:
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
-        image_path_no_ext = image_path.split('.')[:-4]
+        image_path_no_ext = image_path[:-4]
         print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
