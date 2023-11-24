@@ -590,16 +590,19 @@ class Api:
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
     
     def upscale_api(self, req: models.ExtrasBatchImagesRequest):
+        aws_access_key_id="AKIAT4UQTLJVAI4GD256"
+        aws_secret_access_key="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"
         session = boto3.Session(
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
         )
         print("upscale request recived")
-        aws_access_key_id="AKIAT4UQTLJVAI4GD256"
-        aws_secret_access_key="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"
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
+
+        # HARD CODED FOR TEST
+        image_path = "2023-11-24T12:16:15.682Z-arabic_2.png"
         print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
