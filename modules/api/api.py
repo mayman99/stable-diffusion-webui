@@ -17,6 +17,8 @@ from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
 import boto3
 
+from utils import read_image_from_s3, divide_and_save_from_memory, recombine_images
+
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
 from modules.api import models
@@ -475,17 +477,32 @@ class Api:
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
     
     def upscale_api(self, req: models.ExtrasBatchImagesRequest):
+        session = boto3.Session(
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+        )
         print("upscale request recived")
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id="AKIAT4UQTLJVAI4GD256",
-            aws_secret_access_key="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"
-            )
+        aws_access_key_id="AKIAT4UQTLJVAI4GD256"
+        aws_secret_access_key="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"
+        bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
         print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
+        
+        image = read_image_from_s3(session, bucketname, image_path)
+        if image is None:
+            raise HTTPException(status_code=404, detail="Image not found")
+        print("image read from s3")
+        
+        output_path = f"/workspace/outputs/{image_path}"
+        # make a new dir
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        divide_and_save_from_memory(image, output_path, image_path, 512)
+
+        recombine_images(output_path, f"upscaled_{image_path}", "/workspace/outputs/", session)
         return
 
         # TODO: check if image_path is a valid path
