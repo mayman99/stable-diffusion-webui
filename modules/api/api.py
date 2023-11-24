@@ -641,26 +641,24 @@ class Api:
             raise HTTPException(status_code=404, detail="Image not found")
         print("image read from s3", image)
     
-        output_path = f"/workspace/outputs/{image_path}"
+        divided_images_path = f"/workspace/outputs/{image_path.split('.')[0]}/original"
+        divided_upscaled_images_path = f"/workspace/outputs/{image_path.split('.')[0]}/upscaled"
+        result_image_path = f"/workspace/outputs/{image_path.split('.')[0]}/result"
+
         # make a new dir
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-        divide_and_save_from_memory(image, output_path, image_path)
+        if not os.path.exists(divided_images_path):
+            os.makedirs(divided_images_path)
+        if not os.path.exists(divided_upscaled_images_path):
+            os.makedirs(divided_upscaled_images_path)
 
-        recombine_images(output_path, f"upscaled_{image_path}", "/workspace/outputs/", session)
-        return
+        divide_and_save_from_memory(image, divided_images_path, image_path)
 
-        # TODO: check if image_path is a valid path
-        # Read the image from the path
-        # divide the image into 512x512 tiles
-        # upscale each tile
-        # stitch the tiles back together
-        # write back the image
-        image_folder = [decode_base64_to_image(x.data) for x in image_list]
-
+        # Upscale each image
         with self.queue_lock:
-            result = postprocessing.run_extras(extras_mode=1, image_folder=image_folder, image="", input_dir="", output_dir="", save_output=False, **reqDict)
+            result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=False, **reqDict)
 
+        recombine_images(divided_upscaled_images_path, result_image_path, "/workspace/outputs/", session)
+    
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
 
     def pnginfoapi(self, req: models.PNGInfoRequest):
