@@ -134,7 +134,7 @@ def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-
     pil_image.save(file_stream, format='png')
     object.put(Body=file_stream.getvalue())
 
-def recombine_images(input_dir, output_file_name, output_dir="", session=None):
+def recombine_images(input_dir, output_file_path, output_dir="", session=None):
     def rows_columns(file_names):
         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
 
@@ -142,7 +142,7 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
             # i = int(file_name[-5])
             # j = int(file_name[-7])
 
-            i = int(file_name[10])
+            i = int(file_name[-10])
             j = int(file_name[-12])
 
             # Update max_i and max_j if necessary
@@ -174,11 +174,13 @@ def recombine_images(input_dir, output_file_name, output_dir="", session=None):
 
             # Paste the image onto the final canvas
             final_image.paste(img, (x_position, y_position))
-    output_path = f"{output_dir}/{output_file_name}.png"
+    output_path = f"{output_file_path}.png"
     final_image.save(output_path)
-
+    image_name = output_file_path.split("outputs/")[1].split("/")[0]
+    print(image_name)
     if session is not None:
-        write_image_to_s3(session, final_image, 'satupscale', "final_image.png", )
+        write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
+        print("written to s3")
 
 def script_name_to_index(name, scripts):
     try:
@@ -657,7 +659,7 @@ class Api:
         with self.queue_lock:
             result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
             print(result)
-            recombine_images(divided_upscaled_images_path, result_image_path, "/workspace/outputs/", session)
+            recombine_images(divided_upscaled_images_path, result_image_path, session)
     
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
 
