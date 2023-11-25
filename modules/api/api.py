@@ -231,6 +231,10 @@ def recombine_images(input_dir, output_file_path, session=None):
             # Paste the image onto the final canvas
             final_image.paste(img, (x_position, y_position))
     output_path = f"{output_file_path}.png"
+    final_image_array = np.array(final_image)
+    # rotate colors
+    final_image_array = final_image_array[:, :, ::-1]
+    final_image = Image.fromarray(final_image_array)
     final_image.save(output_path)
     image_name = output_file_path.split("outputs/")[1].split("/")[0]
     print(image_name)
@@ -777,7 +781,7 @@ class Api:
         scale = 2
         overlap = 5
         scaled_overlap = scale * overlap
-        divide_and_save_from_memory(image, divided_images_path, image_path, max_side=512)
+        divide_and_save_from_memory(image, divided_images_path, image_path, max_side=2000)
         # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
 
         # Upscale each image
