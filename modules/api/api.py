@@ -772,10 +772,10 @@ class Api:
             os.makedirs(divided_upscaled_images_path)
 
         scale = 2
-        overlap = 20
+        overlap = 5
         scaled_overlap = scale * overlap
         # divide_and_save_from_memory(image, divided_images_path, image_path)
-        divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=20)
+        divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
 
         # Upscale each image
         with self.queue_lock:
