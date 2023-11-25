@@ -163,6 +163,11 @@ class ExtrasSingleImageRequest(ExtrasBaseRequest):
 class ExtrasSingleImageResponse(ExtraBaseResponse):
     image: str = Field(default=None, title="Image", description="The generated image in base64 format.")
 
+class UpscaleRequest(ExtrasBaseRequest):
+    imagePath: str = Field(title="Image path", description="The path of the input image.")
+class UpscaleResponse(ExtraBaseResponse):
+    imagePath: str = Field(title="Image path", description="The path of the result image.")
+
 class FileData(BaseModel):
     data: str = Field(title="File data", description="Base64 representation of the file")
     name: str = Field(title="File name")

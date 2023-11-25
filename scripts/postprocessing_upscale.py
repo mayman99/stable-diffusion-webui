@@ -85,6 +85,7 @@ class ScriptPostprocessingUpscale(scripts_postprocessing.ScriptPostprocessing):
         if upscaler_1_name == "None":
             upscaler_1_name = None
 
+        print(shared.sd_upscalers)
         upscaler1 = next(iter([x for x in shared.sd_upscalers if x.name == upscaler_1_name]), None)
         assert upscaler1 or (upscaler_1_name is None), f'could not find upscaler named {upscaler_1_name}'
 
