@@ -114,7 +114,7 @@ def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20)
             else:
                 cv2.imwrite(patch_file_path, patch)
 
-def divide_and_save_from_memory(image, output_dir, file_name, max_size):
+def divide_and_save_from_memory(image, output_dir, file_name, max_side):
     def is_prime(number):
         if number < 2:
             return False
@@ -138,11 +138,11 @@ def divide_and_save_from_memory(image, output_dir, file_name, max_size):
 
     while is_prime(height):
         height -= 1
-    patch_height_size = max_factor_below_n(height, max_size)
+    patch_height_size = max_factor_below_n(height, max_side)
 
     while is_prime(width):
         width -= 1
-    patch_width_size = max_factor_below_n(width, max_size)
+    patch_width_size = max_factor_below_n(width, max_side)
 
     # Calculate the number of patches in each dimension
     num_patches_height = height // patch_height_size
