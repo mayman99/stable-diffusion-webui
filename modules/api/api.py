@@ -114,7 +114,7 @@ def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20)
             else:
                 cv2.imwrite(patch_file_path, patch)
 
-def divide_and_save_from_memory(image, output_dir, file_name):
+def divide_and_save_from_memory(image, output_dir, file_name, max_size):
     def is_prime(number):
         if number < 2:
             return False
@@ -122,7 +122,10 @@ def divide_and_save_from_memory(image, output_dir, file_name):
             if number % i == 0:
                 return False
         return True
-
+    def max_factor_below_n(number, n):
+        for factor in range(n, 1, -1):
+            if number % factor == 0:
+                return factor
     def max_factor_below_513(number):
         for factor in range(512, 1, -1):
             if number % factor == 0:
@@ -135,11 +138,11 @@ def divide_and_save_from_memory(image, output_dir, file_name):
 
     while is_prime(height):
         height -= 1
-    patch_height_size = max_factor_below_513(height)
+    patch_height_size = max_factor_below_n(height, max_size)
 
     while is_prime(width):
         width -= 1
-    patch_width_size = max_factor_below_513(width)
+    patch_width_size = max_factor_below_n(width, max_size)
 
     # Calculate the number of patches in each dimension
     num_patches_height = height // patch_height_size
@@ -774,14 +777,14 @@ class Api:
         scale = 2
         overlap = 5
         scaled_overlap = scale * overlap
-        # divide_and_save_from_memory(image, divided_images_path, image_path)
-        divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
+        divide_and_save_from_memory(image, divided_images_path, image_path, max_side=512)
+        # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
 
         # Upscale each image
         with self.queue_lock:
             result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            # recombine_images(divided_upscaled_images_path, result_image_path, session)
-            recombine_images_with_overlap(divided_upscaled_images_path, result_image_path, scaled_overlap, session)
+            recombine_images(divided_upscaled_images_path, result_image_path, session)
+            # recombine_images_with_overlap(divided_upscaled_images_path, result_image_path, scaled_overlap, session)
     
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
