@@ -63,6 +63,57 @@ def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
     im = Image.open(file_stream)
     return np.array(im)
 
+def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20):
+    def is_prime(number):
+        if number < 2:
+            return False
+        for i in range(2, int(number**0.5) + 1):
+            if number % i == 0:
+                return False
+        return True
+    def max_factor_below_n(number, n):
+        for factor in range(n, 1, -1):
+            if number % factor == 0:
+                return factor
+
+    ext = file_name.split(".")[-1]
+
+    # Get the image dimensions
+    height, width = image.shape[:2]
+
+    while is_prime(height):
+        height -= 1
+    patch_height_size = max_factor_below_n(height, max_side)
+
+    while is_prime(width):
+        width -= 1
+    patch_width_size = max_factor_below_n(width, max_side)
+
+    # Calculate the number of patches in each dimension
+    num_patches_height = height // patch_height_size
+    num_patches_width = width // patch_width_size
+    
+    # Iterate through patches and save them
+    for i in range(num_patches_height):
+        for j in range(num_patches_width):
+            # Extract the patch             
+            overlap_height_neg = 0 if i == 0 else overlap
+            overlap_height_pos = 0 if i == num_patches_height - 1 else overlap
+            overlap_width_neg = 0 if j == 0 else overlap
+            overlap_width_pos = 0 if j == num_patches_width - 1 else overlap
+
+            patch = image[
+                i * patch_height_size - overlap_height_neg : (i + 1) * patch_height_size + overlap_height_pos,
+                j * patch_width_size - overlap_width_neg : (j + 1) * patch_width_size + overlap_width_pos
+            ]
+
+            # Save the patch
+            patch_file_path = os.path.join(output_dir, f"{i}_{j}.png")
+            if ext == "tif":
+                cv2.imwrite(patch_file_path, cv2.cvtColor(patch, cv2.COLOR_RGB2BGR))
+            else:
+                cv2.imwrite(patch_file_path, patch)
+
 def divide_and_save_from_memory(image, output_dir, file_name):
     def is_prime(number):
         if number < 2:
@@ -93,8 +144,6 @@ def divide_and_save_from_memory(image, output_dir, file_name):
     # Calculate the number of patches in each dimension
     num_patches_height = height // patch_height_size
     num_patches_width = width // patch_width_size
-
-    print(patch_height_size, patch_width_size, num_patches_height, num_patches_width, patch_width_size*num_patches_width, num_patches_height*patch_height_size)
     
     # Iterate through patches and save them
     for i in range(num_patches_height):
@@ -108,6 +157,7 @@ def divide_and_save_from_memory(image, output_dir, file_name):
                 cv2.imwrite(patch_file_path, cv2.cvtColor(patch, cv2.COLOR_RGB2BGR))
             else:
                 cv2.imwrite(patch_file_path, patch)
+
 
 
 # Write image back to bucket
@@ -177,6 +227,73 @@ def recombine_images(input_dir, output_file_path, session=None):
 
             # Paste the image onto the final canvas
             final_image.paste(img, (x_position, y_position))
+    output_path = f"{output_file_path}.png"
+    final_image.save(output_path)
+    image_name = output_file_path.split("outputs/")[1].split("/")[0]
+    print(image_name)
+    if session is not None:
+        write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
+        print("written to s3")
+
+
+def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, session=None):
+    def rows_columns(file_names):
+        max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
+
+        for file_name in file_names:
+            parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
+            # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
+
+            # Extract values for i and j
+            i, j = map(int, parts)
+
+            # Update max_i and max_j if necessary
+            max_i = max(max_i, i)
+            max_j = max(max_j, j)
+
+        return max_i+1, max_j+1
+
+    file_names = os.listdir(input_dir)
+    rows, columns = rows_columns(file_names)
+    # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
+    first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
+    image_height, image_width = first_patch.shape[:2]
+    image_height -= overlap
+    image_width -= overlap
+    
+    print(image_width, columns)
+    # Create a blank canvas for the final image
+
+    final_image = Image.new('RGB', (columns * image_width, rows * image_height))
+    final_array = np.array((columns * image_width, rows * image_height, 3))
+
+    for row in range(rows):
+        for col in range(columns):
+            # Open each individual image
+            # image_path = f"{input_dir}/{row}_{col}.png"
+            image_path = f"{input_dir}/{row}_{col}-0000.png"
+            img = cv2.imread(image_path)
+            current_image_height, current_image_width = first_patch.shape[:2]
+
+            overlap_height_neg = overlap if row == 0 else 0
+            overlap_height_pos = 0 if row == rows - 1 else overlap
+            overlap_width_neg = overlap if col == 0 else 0
+            overlap_width_pos = 0 if col == columns - 1 else overlap
+
+            x_position = col * image_width
+            y_position = row * image_height
+
+            img_array = img[
+                overlap - overlap_height_neg : current_image_height,
+                overlap - overlap_width_neg : current_image_width
+            ]
+
+            img_array = img_array[:, :, ::-1]
+            img_result = Image.fromarray(img_array)
+    
+            # Paste the image onto the final canvas
+            final_image.paste(img_result, (x_position, y_position))
+
     output_path = f"{output_file_path}.png"
     final_image.save(output_path)
     image_name = output_file_path.split("outputs/")[1].split("/")[0]
@@ -654,13 +771,17 @@ class Api:
         if not os.path.exists(divided_upscaled_images_path):
             os.makedirs(divided_upscaled_images_path)
 
-        divide_and_save_from_memory(image, divided_images_path, image_path)
+        scale = 2
+        overlap = 20
+        scaled_overlap = scale * overlap
+        # divide_and_save_from_memory(image, divided_images_path, image_path)
+        divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=20)
 
         # Upscale each image
         with self.queue_lock:
             result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            print(result)
-            recombine_images(divided_upscaled_images_path, result_image_path, session)
+            # recombine_images(divided_upscaled_images_path, result_image_path, session)
+            recombine_images_with_overlap(divided_upscaled_images_path, result_image_path, scaled_overlap, session)
     
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
