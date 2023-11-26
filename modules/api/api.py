@@ -757,19 +757,19 @@ class Api:
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
         )
-        print("upscale request recived")
+
+        
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
+        print("upscale request recived for image {}".format(image_path))
         image_path_no_ext = image_path[:-4]
-        print(image_path)
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
         
         image = read_image_from_s3(session, bucketname, image_path)
         if image is None:
             raise HTTPException(status_code=404, detail="Image not found")
-        print("image read from s3", image)
     
         root_image_path = "/workspace/outputs/{}".format(image_path_no_ext)
         divided_images_path = f"/workspace/outputs/{image_path_no_ext}/original"
@@ -785,15 +785,20 @@ class Api:
         scale = 2
         overlap = 5
         scaled_overlap = scale * overlap
-        divide_and_save_from_memory(image, divided_images_path, image_path, max_side=2000)
-        # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
 
+        print("image {} before lock".format(image_path))
         # Upscale each image
         with self.queue_lock:
+            print("image {} aquired lock".format(image_path))
+
+            divide_and_save_from_memory(image, divided_images_path, image_path, max_side=2000)
+            # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
             result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
             recombine_images(root_image_path, result_image_path, session)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
     
+        print("image {} released lock".format(image_path))
+
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
     def pnginfoapi(self, req: models.PNGInfoRequest):
