@@ -164,6 +164,7 @@ class ExtrasSingleImageResponse(ExtraBaseResponse):
     image: str = Field(default=None, title="Image", description="The generated image in base64 format.")
 
 class UpscaleRequest(ExtrasBaseRequest):
+    client_id: str = Field(default="", title="Client ID", description="Client ID used to identify the client.")
     imagePath: str = Field(title="Image path", description="The path of the input image.")
 class UpscaleResponse(ExtraBaseResponse):
     imagePath: str = Field(title="Image path", description="The path of the result image.")
@@ -187,6 +188,7 @@ class PNGInfoResponse(BaseModel):
 
 class ProgressRequest(BaseModel):
     skip_current_image: bool = Field(default=False, title="Skip current image", description="Skip current image serialization")
+    client_id: str = Field(default="", title="Client ID", description="Client ID used to identify the client.")
 
 class ProgressResponse(BaseModel):
     progress: float = Field(title="Progress", description="The progress with a range of 0 to 1")
@@ -194,6 +196,7 @@ class ProgressResponse(BaseModel):
     state: dict = Field(title="State", description="The current state snapshot")
     current_image: str = Field(default=None, title="Current image", description="The current image in base64 format. opts.show_progress_every_n_steps is required for this to work.")
     textinfo: str = Field(default=None, title="Info text", description="Info text used by WebUI.")
+    client_position: int = Field(default=None, title="Client position", description="The position of the client in the queue.")
 
 class InterrogateRequest(BaseModel):
     image: str = Field(default="", title="Image", description="Image to work on, must be a Base64 string containing the image's data.")
