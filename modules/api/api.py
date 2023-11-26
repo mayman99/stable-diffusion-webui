@@ -237,10 +237,11 @@ def recombine_images(input_dir, output_file_path, session=None):
     final_image = Image.fromarray(final_image_array)
     final_image.save(output_path)
     image_name = output_file_path.split("outputs/")[1].split("/")[0]
-    print(image_name)
     if session is not None:
         write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
-        print("written to s3")
+        print("written{} to s3".format(image_name))
+        # delete images dir
+
 
 
 def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, session=None):
