@@ -18,6 +18,7 @@ from secrets import compare_digest
 import boto3
 import cv2
 import numpy as np
+from collections import deque
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
@@ -485,6 +486,10 @@ class Api:
         self.router = APIRouter()
         self.app = app
         self.queue_lock = queue_lock
+
+        self.clients_queue = deque()
+        self.clients_queue_lock = Lock()
+        
         api_middleware(self.app)
         self.add_api_route("/sdapi/v1/upscale", self.upscale_api, methods=["POST"], response_model=models.UpscaleResponse)
         self.add_api_route("/sdapi/v1/txt2img", self.text2imgapi, methods=["POST"], response_model=models.TextToImageResponse)
@@ -762,6 +767,7 @@ class Api:
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
+        client_id = reqDict.pop('client_id', "")
         print("upscale request recived for image {}".format(image_path))
         image_path_no_ext = image_path[:-4]
         if image_path == "":
@@ -787,6 +793,12 @@ class Api:
         scaled_overlap = scale * overlap
 
         print("image {} before lock".format(image_path))
+        
+        # queue_lock is used to prevent multiple requests from being processed at the same time.
+        # client_id is used to track which client request is being processed and the position of the cleint in the waiting queue.
+        with self.clients_queue_lock:
+            self.clients_queue.append(client_id)
+
         # Upscale each image
         with self.queue_lock:
             print("image {} aquired lock".format(image_path))
@@ -798,6 +810,9 @@ class Api:
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
     
         print("image {} released lock".format(image_path))
+
+        with self.clients_queue_lock:
+            self.clients_queue.popleft(client_id)
 
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
@@ -823,27 +838,38 @@ class Api:
         if shared.state.job_count == 0:
             return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo)
 
-        # avoid dividing zero
-        progress = 0.01
+        if req.client_id is not None:
+            clients_queue = []
+            with self.clients_queue_lock:
+                clients_queue = list(self.clients_queue)
+            if req.client_id in clients_queue:
+                # return the client position in the queue
+                client_position = clients_queue.index(req.client_id)
+            else:
+                client_position = 0
 
-        if shared.state.job_count > 0:
-            progress += shared.state.job_no / shared.state.job_count
-        if shared.state.sampling_steps > 0:
-            progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
+            progress = 0.01
 
-        time_since_start = time.time() - shared.state.time_start
-        eta = (time_since_start/progress)
-        eta_relative = eta-time_since_start
+            if shared.state.job_count > 0:
+                progress += shared.state.job_no / shared.state.job_count
+            if shared.state.sampling_steps > 0:
+                progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
 
-        progress = min(progress, 1)
+            time_since_start = time.time() - shared.state.time_start
+            eta = (time_since_start/progress)
+            eta_relative = eta-time_since_start
 
-        shared.state.set_current_image()
+            progress = min(progress, 1)
 
-        current_image = None
-        if shared.state.current_image and not req.skip_current_image:
-            current_image = encode_pil_to_base64(shared.state.current_image)
+            shared.state.set_current_image()
 
-        return models.ProgressResponse(progress=progress, eta_relative=eta_relative, state=shared.state.dict(), current_image=current_image, textinfo=shared.state.textinfo)
+            current_image = None
+            if shared.state.current_image and not req.skip_current_image:
+                current_image = encode_pil_to_base64(shared.state.current_image)
+
+            return models.ProgressResponse(progress=progress, eta_relative=eta_relative, state=shared.state.dict(), current_image=current_image, textinfo=shared.state.textinfo, client_position=client_position)
+        else:
+            return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo)
 
     def interrogateapi(self, interrogatereq: models.InterrogateRequest):
         image_b64 = interrogatereq.image
