@@ -849,6 +849,9 @@ class Api:
     def progressapi(self, req: models.ProgressRequest = Depends()):
         # copy from check_progress_call of ui.py
 
+        if shared.state.job_count == 0:
+            return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo, client_position=-1)
+
         if req.client_id is not None:
             clients_queue = []
             client_position = -1    # -1 means not in queue
@@ -862,13 +865,15 @@ class Api:
 
             if shared.state.job_count > 0:
                 progress += shared.state.job_no / shared.state.job_count
-            if shared.state.sampling_steps > 0:
-                progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
+                if shared.state.sampling_steps > 0:
+                    progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
 
             time_since_start = time.time() - shared.state.time_start
-            eta = (time_since_start/progress)
+            eta = (time_since_start/progress) if progress > 0 else 0
             eta_relative = eta-time_since_start
 
+            progress = min(progress, 1)
+        
             progress = min(progress, 1)
 
             shared.state.set_current_image()
