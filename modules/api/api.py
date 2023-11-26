@@ -826,7 +826,7 @@ class Api:
         print("image {} released lock".format(image_path))
 
         with self.clients_queue_lock:
-            self.clients_queue.popleft(client_id)
+            self.clients_queue.popleft()
 
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
