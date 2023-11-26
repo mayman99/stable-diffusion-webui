@@ -801,12 +801,26 @@ class Api:
 
         # Upscale each image
         with self.queue_lock:
-            print("image {} aquired lock".format(image_path))
+            try:
+                shared.state.begin(job="preprocessing")
+                print("image {} aquired lock".format(image_path))
+                divide_and_save_from_memory(image, divided_images_path, image_path, max_side=2000)
+            finally:
+                shared.state.end()
 
-            divide_and_save_from_memory(image, divided_images_path, image_path, max_side=2000)
+            try:
+                shared.state.begin(job="scaling")
+                result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
+            finally:
+                shared.state.end()
+
+            try:
+                shared.state.begin(job="writting")
+                recombine_images(root_image_path, result_image_path, session)
+            finally:
+                shared.state.end()
+
             # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
-            result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            recombine_images(root_image_path, result_image_path, session)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
     
         print("image {} released lock".format(image_path))
@@ -835,18 +849,14 @@ class Api:
     def progressapi(self, req: models.ProgressRequest = Depends()):
         # copy from check_progress_call of ui.py
 
-        if shared.state.job_count == 0:
-            return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo)
-
         if req.client_id is not None:
             clients_queue = []
+            client_position = -1    # -1 means not in queue
             with self.clients_queue_lock:
                 clients_queue = list(self.clients_queue)
             if req.client_id in clients_queue:
                 # return the client position in the queue
                 client_position = clients_queue.index(req.client_id)
-            else:
-                client_position = 0
 
             progress = 0.01
 
@@ -869,7 +879,7 @@ class Api:
 
             return models.ProgressResponse(progress=progress, eta_relative=eta_relative, state=shared.state.dict(), current_image=current_image, textinfo=shared.state.textinfo, client_position=client_position)
         else:
-            return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo)
+            return models.ProgressResponse(progress=0, eta_relative=0, state=shared.state.dict(), textinfo=shared.state.textinfo, client_position=-1)
 
     def interrogateapi(self, interrogatereq: models.InterrogateRequest):
         image_b64 = interrogatereq.image
