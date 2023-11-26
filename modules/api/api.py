@@ -207,11 +207,11 @@ def recombine_images(input_dir, output_file_path, session=None):
         return max_i+1, max_j+1
 
 
-    file_names = os.listdir(input_dir)
+    file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-    first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
+    first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
     image_height, image_width = first_patch.shape[:2]
 
     # Create a blank canvas for the final image
@@ -221,7 +221,7 @@ def recombine_images(input_dir, output_file_path, session=None):
         for col in range(columns):
             # Open each individual image
             # image_path = f"{input_dir}/{row}_{col}.png"
-            image_path = f"{input_dir}/{row}_{col}-0000.png"
+            image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
             img = Image.open(image_path)
 
             # Calculate the position to paste the image on the canvas
@@ -241,6 +241,8 @@ def recombine_images(input_dir, output_file_path, session=None):
         write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
         print("written{} to s3".format(image_name))
         # delete images dir
+        os.system("rm -rf {}".format(input_dir))
+        print("deleted {} dir".format(input_dir))
 
 
 
@@ -261,10 +263,10 @@ def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, sessi
 
         return max_i+1, max_j+1
 
-    file_names = os.listdir(input_dir)
+    file_names = os.listdir(input_dir + "/upscaled")
     rows, columns = rows_columns(file_names)
     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-    first_patch = cv2.imread(f"{input_dir}/{0}_{0}-0000.png")
+    first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
     image_height, image_width = first_patch.shape[:2]
     image_height -= overlap
     image_width -= overlap
@@ -279,7 +281,7 @@ def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, sessi
         for col in range(columns):
             # Open each individual image
             # image_path = f"{input_dir}/{row}_{col}.png"
-            image_path = f"{input_dir}/{row}_{col}-0000.png"
+            image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
             img = cv2.imread(image_path)
             current_image_height, current_image_width = first_patch.shape[:2]
 
@@ -769,6 +771,7 @@ class Api:
             raise HTTPException(status_code=404, detail="Image not found")
         print("image read from s3", image)
     
+        root_image_path = "/workspace/outputs/{}".format(image_path_no_ext)
         divided_images_path = f"/workspace/outputs/{image_path_no_ext}/original"
         divided_upscaled_images_path = f"/workspace/outputs/{image_path_no_ext}/upscaled"
         result_image_path = f"/workspace/outputs/{image_path_no_ext}/result"
@@ -788,8 +791,8 @@ class Api:
         # Upscale each image
         with self.queue_lock:
             result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            recombine_images(divided_upscaled_images_path, result_image_path, session)
-            # recombine_images_with_overlap(divided_upscaled_images_path, result_image_path, scaled_overlap, session)
+            recombine_images(root_image_path, result_image_path, session)
+            # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
     
         return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
 
