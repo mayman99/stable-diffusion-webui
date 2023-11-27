@@ -195,13 +195,17 @@ def configure_cors_middleware(app):
         "allow_credentials": True,
     }
     cors_options["allow_origins"] = [
-        "http://localhost:5500",
-        "http://localhost:3000",
-        "http://localhost:3000/*",
-        "https://localhost:3000",
-        "https://localhost:3000/*",
+        # "http://localhost:5500",
+        # "http://localhost:3000",
+        # "http://localhost:3000/*",
+        # "https://localhost:3000",
+        # "https://localhost:3000/*",
         "https://supersat-406120.uc.r.appspot.com",
-        "https://supersat-406120.uc.r.appspot.com/*"
+        "https://supersat-406120.uc.r.appspot.com/*",
+        "https://resolutionboost.com",
+        "https://resolutionboost.com/*",
+        "https://www.resolutionboost.com",
+        "https://www.resolutionboost.com/*"
     ]
     if cmd_opts.cors_allow_origins:
         cors_options["allow_origins"] = cmd_opts.cors_allow_origins.split(',')

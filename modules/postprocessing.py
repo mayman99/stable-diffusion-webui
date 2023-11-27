@@ -58,7 +58,12 @@ def run_postprocessing(extras_mode, image, image_folder, input_dir, output_dir, 
 
         scripts.scripts_postproc.run(pp, args)
 
-        if opts.use_original_name_batch and name is not None:
+        print(name)
+        print(opts.use_original_name_batch)
+        print(os.path.splitext(os.path.basename(name))[0])
+        # if opts.use_original_name_batch and name is not None:
+
+        if name is not None:
             basename = os.path.splitext(os.path.basename(name))[0]
         else:
             basename = ''

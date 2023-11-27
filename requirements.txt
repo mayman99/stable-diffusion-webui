@@ -34,3 +34,4 @@ transformers==4.30.2
 omegaconf==2.2.3
 opencv-contrib-python==4.8.0.76
 xformers==0.0.20
+boto3

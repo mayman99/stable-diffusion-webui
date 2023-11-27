@@ -19,6 +19,8 @@ import boto3
 import cv2
 import numpy as np
 from collections import deque
+import tempfile
+import re
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
@@ -115,7 +117,7 @@ def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20)
             else:
                 cv2.imwrite(patch_file_path, patch)
 
-def divide_and_save_from_memory(image, output_dir, file_name, max_side):
+def divide_and_save_from_memory(image, output_dir, ext, max_side):
     def is_prime(number):
         if number < 2:
             return False
@@ -131,8 +133,6 @@ def divide_and_save_from_memory(image, output_dir, file_name, max_side):
         for factor in range(512, 1, -1):
             if number % factor == 0:
                 return factor
-
-    ext = file_name.split(".")[-1]
 
     # Get the image dimensions
     height, width = image.shape[:2]
@@ -197,22 +197,24 @@ def recombine_images(input_dir, output_file_path, session=None):
             # j = int(file_name[-7])
             # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
             
-            parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
+            # parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
 
             # Extract values for i and j
-            i, j = map(int, parts)
+            # i, j = map(int, parts)
+            print(file_name)
+            numbers = re.findall(r'(\d+)_+(\d+)', file_name)
+            i, j = numbers[0]  # This will print a tuple: ('12', '1')
 
             # Update max_i and max_j if necessary
-            max_i = max(max_i, i)
-            max_j = max(max_j, j)
+            max_i = max(max_i, int(i))
+            max_j = max(max_j, int(j))
         return max_i+1, max_j+1
-
 
     file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-    first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
+    first_patch = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
     image_height, image_width = first_patch.shape[:2]
 
     # Create a blank canvas for the final image
@@ -221,8 +223,9 @@ def recombine_images(input_dir, output_file_path, session=None):
     for row in range(rows):
         for col in range(columns):
             # Open each individual image
-            # image_path = f"{input_dir}/{row}_{col}.png"
-            image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
+            image_path = os.path.join(input_dir, "upscaled", f"{row}_{col}-0000.png")
+            # image_path = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
+
             img = Image.open(image_path)
 
             # Calculate the position to paste the image on the canvas
@@ -237,81 +240,78 @@ def recombine_images(input_dir, output_file_path, session=None):
     final_image_array = final_image_array[:, :, ::-1]
     final_image = Image.fromarray(final_image_array)
     final_image.save(output_path)
-    image_name = output_file_path.split("outputs/")[1].split("/")[0]
-    if session is not None:
-        write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
-        print("written{} to s3".format(image_name))
-        # delete images dir
-        os.system("rm -rf {}".format(input_dir))
-        print("deleted {} dir".format(input_dir))
-
-
-
-def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, session=None):
-    def rows_columns(file_names):
-        max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
-
-        for file_name in file_names:
-            parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
-            # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
-
-            # Extract values for i and j
-            i, j = map(int, parts)
-
-            # Update max_i and max_j if necessary
-            max_i = max(max_i, i)
-            max_j = max(max_j, j)
-
-        return max_i+1, max_j+1
-
-    file_names = os.listdir(input_dir + "/upscaled")
-    rows, columns = rows_columns(file_names)
-    # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-    first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
-    image_height, image_width = first_patch.shape[:2]
-    image_height -= overlap
-    image_width -= overlap
-    
-    print(image_width, columns)
-    # Create a blank canvas for the final image
-
-    final_image = Image.new('RGB', (columns * image_width, rows * image_height))
-    final_array = np.array((columns * image_width, rows * image_height, 3))
-
-    for row in range(rows):
-        for col in range(columns):
-            # Open each individual image
-            # image_path = f"{input_dir}/{row}_{col}.png"
-            image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
-            img = cv2.imread(image_path)
-            current_image_height, current_image_width = first_patch.shape[:2]
-
-            overlap_height_neg = overlap if row == 0 else 0
-            overlap_height_pos = 0 if row == rows - 1 else overlap
-            overlap_width_neg = overlap if col == 0 else 0
-            overlap_width_pos = 0 if col == columns - 1 else overlap
-
-            x_position = col * image_width
-            y_position = row * image_height
-
-            img_array = img[
-                overlap - overlap_height_neg : current_image_height,
-                overlap - overlap_width_neg : current_image_width
-            ]
-
-            img_array = img_array[:, :, ::-1]
-            img_result = Image.fromarray(img_array)
-    
-            # Paste the image onto the final canvas
-            final_image.paste(img_result, (x_position, y_position))
-
-    output_path = f"{output_file_path}.png"
-    final_image.save(output_path)
-    image_name = output_file_path.split("outputs/")[1].split("/")[0]
+    parent_dir = os.path.dirname(output_file_path)
+    image_name = os.path.basename(parent_dir)
     print(image_name)
     if session is not None:
-        write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
-        print("written to s3")
+        write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
+        print("written {}.png to s3".format(image_name))
+
+# def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, session=None):
+#     def rows_columns(file_names):
+#         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
+
+#         for file_name in file_names:
+#             # parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
+#             parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
+
+#             # Extract values for i and j
+#             i, j = map(int, parts)
+
+#             # Update max_i and max_j if necessary
+#             max_i = max(max_i, i)
+#             max_j = max(max_j, j)
+
+#         return max_i+1, max_j+1
+
+#     file_names = os.listdir(input_dir + "/upscaled")
+#     rows, columns = rows_columns(file_names)
+#     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
+#     first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
+#     image_height, image_width = first_patch.shape[:2]
+#     image_height -= overlap
+#     image_width -= overlap
+    
+#     print(image_width, columns)
+#     # Create a blank canvas for the final image
+
+#     final_image = Image.new('RGB', (columns * image_width, rows * image_height))
+#     final_array = np.array((columns * image_width, rows * image_height, 3))
+
+#     for row in range(rows):
+#         for col in range(columns):
+#             # Open each individual image
+#             # image_path = f"{input_dir}/{row}_{col}.png"
+#             image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
+#             img = cv2.imread(image_path)
+#             current_image_height, current_image_width = first_patch.shape[:2]
+
+#             overlap_height_neg = overlap if row == 0 else 0
+#             overlap_height_pos = 0 if row == rows - 1 else overlap
+#             overlap_width_neg = overlap if col == 0 else 0
+#             overlap_width_pos = 0 if col == columns - 1 else overlap
+
+#             x_position = col * image_width
+#             y_position = row * image_height
+
+#             img_array = img[
+#                 overlap - overlap_height_neg : current_image_height,
+#                 overlap - overlap_width_neg : current_image_width
+#             ]
+
+#             img_array = img_array[:, :, ::-1]
+#             img_result = Image.fromarray(img_array)
+    
+#             # Paste the image onto the final canvas
+#             final_image.paste(img_result, (x_position, y_position))
+
+#     output_path = f"{output_file_path}.png"
+#     final_image.save(output_path)
+#     image_name = output_file_path.split("outputs/")[1].split("/")[0]
+#     print(image_name)
+#     if session is not None:
+#         write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
+#         print("written to s3")
 
 def script_name_to_index(name, scripts):
     try:
@@ -763,30 +763,36 @@ class Api:
             aws_secret_access_key=aws_secret_access_key,
         )
 
-        
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
         client_id = reqDict.pop('client_id', "")
         print("upscale request recived for image {}".format(image_path))
         image_path_no_ext = image_path[:-4]
+        image_ext = image_path[-4:]
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
-        
+
         image = read_image_from_s3(session, bucketname, image_path)
         if image is None:
             raise HTTPException(status_code=404, detail="Image not found")
     
-        root_image_path = "/workspace/outputs/{}".format(image_path_no_ext)
-        divided_images_path = f"/workspace/outputs/{image_path_no_ext}/original"
-        divided_upscaled_images_path = f"/workspace/outputs/{image_path_no_ext}/upscaled"
-        result_image_path = f"/workspace/outputs/{image_path_no_ext}/result"
-
+        # remove all "." and ":" from image paths
+        temp_dir = tempfile.TemporaryDirectory()
+        temp_dir_path = temp_dir.name
+        root_image_path = os.path.join(temp_dir_path, image_path_no_ext)
+        os.makedirs(root_image_path)
+        divided_images_path = os.path.join(root_image_path, "original")
+        divided_upscaled_images_path = os.path.join(root_image_path, "upscaled")
+        result_image_path = os.path.join(root_image_path, "result")
+        print(root_image_path)
         # make a new dir
         if not os.path.exists(divided_images_path):
             os.makedirs(divided_images_path)
         if not os.path.exists(divided_upscaled_images_path):
             os.makedirs(divided_upscaled_images_path)
+        if not os.path.exists(result_image_path):
+            os.makedirs(result_image_path)
 
         scale = 2
         overlap = 5
@@ -804,7 +810,7 @@ class Api:
             try:
                 shared.state.begin(job="Preprocessing")
                 print("image {} aquired lock".format(image_path))
-                divide_and_save_from_memory(image, divided_images_path, image_path, max_side=512)
+                divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
             finally:
                 shared.state.end()
 
@@ -822,8 +828,8 @@ class Api:
 
             # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
-    
         print("image {} released lock".format(image_path))
+        temp_dir.cleanup()
 
         with self.clients_queue_lock:
             self.clients_queue.popleft()
