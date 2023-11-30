@@ -173,6 +173,15 @@ class FileData(BaseModel):
     data: str = Field(title="File data", description="Base64 representation of the file")
     name: str = Field(title="File name")
 
+class UpscalePreviewRequest(ExtrasBaseRequest):
+    client_id: str = Field(default="", title="Client ID", description="Client ID used to identify the client.")
+    imagePath: str = Field(title="Image path", description="The path of the input image.")
+    temp_dir: str = Field(default="", title="Temp dir", description="Temp dir to use for the batch process.")
+
+class UpscalePreviewResponse(BaseModel):
+    temp_dir: str = Field(default="", title="Temp dir", description="Temp dir to use for the batch process.")
+    images: List[str] = Field(title="Images", description="The generated images in base64 format.")
+
 class ExtrasBatchImagesRequest(ExtrasBaseRequest):
     imageList: List[FileData] = Field(title="Images", description="List of images to work on. Must be Base64 strings")
 
