@@ -1,6 +1,10 @@
 import base64
 import io
+
+# Avoid decompression bomb errors
 import os
+os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
+
 import time
 import datetime
 import uvicorn
@@ -65,6 +69,55 @@ def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
     file_stream = response['Body']
     im = Image.open(file_stream)
     return np.array(im)
+
+def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1'):
+    """Load image file from s3.
+
+    Parameters
+    ----------
+    bucketname: string
+        Bucket name
+    filename : string
+        Path in s3
+
+    Returns
+    -------
+    np array
+        Image array
+    """
+    s3 = session.resource('s3', region_name=region_name)
+    bucket = s3.Bucket(bucketname)
+    object = bucket.Object(filename)
+    response = object.get()
+    file_stream = response['Body']
+    image = np.asarray(bytearray(file_stream.read()), dtype="uint8")
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    return image
+
+def download_s3_image(session, bucketname, filename, path, region_name='us-east-1'):
+
+    """Load image file from s3.
+
+    Parameters
+    ----------
+    bucketname: string
+        Bucket name
+    filename : string
+        Path in s3
+
+    Returns
+    -------
+    np array
+        Image array
+    """
+    s3 = session.resource('s3', region_name=region_name)
+    bucket = s3.Bucket(bucketname)
+    object = bucket.Object(filename)
+    response = object.get()
+    file_stream = response['Body']
+    im_arr = Image.open(file_stream)
+    np.save(os.path.join(path, filename), im_arr)
+    return im_arr
 
 def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20):
     def is_prime(number):
@@ -188,6 +241,8 @@ def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-
     pil_image.save(file_stream, format='png')
     object.put(Body=file_stream.getvalue())
 
+
+
 def recombine_images(input_dir, output_file_path, session=None):
     def rows_columns(file_names):
         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
@@ -213,33 +268,27 @@ def recombine_images(input_dir, output_file_path, session=None):
     file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
-    # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
     first_patch = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
     image_height, image_width = first_patch.shape[:2]
 
     # Create a blank canvas for the final image
-    final_image = Image.new('RGB', (columns * image_width, rows * image_height))
+    final_image = np.zeros((rows * image_height, columns * image_width, 3), dtype=np.uint8)
 
     for row in range(rows):
         for col in range(columns):
             # Open each individual image
             image_path = os.path.join(input_dir, "upscaled", f"{row}_{col}-0000.png")
-            # image_path = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
-
-            img = Image.open(image_path)
+            img = cv2.imread(image_path)
 
             # Calculate the position to paste the image on the canvas
             x_position = col * image_width
             y_position = row * image_height
 
             # Paste the image onto the final canvas
-            final_image.paste(img, (x_position, y_position))
-    output_path = f"{output_file_path}.png"
-    final_image_array = np.array(final_image)
-    # rotate colors
-    final_image_array = final_image_array[:, :, ::-1]
-    final_image = Image.fromarray(final_image_array)
-    final_image.save(output_path)
+            final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
+
+    # Once all images have been pasted, save the final image
+    cv2.imwrite(output_file_path, final_image)
     parent_dir = os.path.dirname(output_file_path)
     image_name = os.path.basename(parent_dir)
     print(image_name)
@@ -492,6 +541,7 @@ class Api:
         
         api_middleware(self.app)
         self.add_api_route("/sdapi/v1/upscale", self.upscale_api, methods=["POST"], response_model=models.UpscaleResponse)
+        self.add_api_route("/sdapi/v1/upscale-preview", self.upscale_preview_api, methods=["POST"], response_model=models.UpscalePreviewResponse)
         self.add_api_route("/sdapi/v1/txt2img", self.text2imgapi, methods=["POST"], response_model=models.TextToImageResponse)
         self.add_api_route("/sdapi/v1/img2img", self.img2imgapi, methods=["POST"], response_model=models.ImageToImageResponse)
         self.add_api_route("/sdapi/v1/extra-single-image", self.extras_single_image_api, methods=["POST"], response_model=models.ExtrasSingleImageResponse)
@@ -755,6 +805,52 @@ class Api:
 
         return models.ExtrasBatchImagesResponse(images=list(map(encode_pil_to_base64, result[0])), html_info=result[1])
     
+    def upscale_preview_api(self, req: models.UpscalePreviewRequest):
+
+        def crop_random(image, size):
+            height, width = image.shape[:2]
+            x = np.random.randint(0, width - size + 1)
+            y = np.random.randint(0, height - size + 1)
+            crop = image[y:y+size, x:x+size]
+            return crop
+    
+        aws_access_key_id="AKIAT4UQTLJVAI4GD256"
+        aws_secret_access_key="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"
+        session = boto3.Session(
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+        )
+        bucketname="satupscale"
+        image_path = req.imagePath
+        client_id = req.client_id
+
+
+        temp_dir = req.temp_dir
+        if temp_dir == "":
+            # create it
+            temp_dir = tempfile.TemporaryDirectory()
+            temp_dir_path = temp_dir.name
+            # downaload image from s3
+            im_arr = download_s3_image(session, bucketname, image_path, temp_dir_path)
+
+            if im_arr is None:
+                raise HTTPException(status_code=404, detail="Image not found")
+            
+            # take a random crop of 128x128 or 64x64 if the image one of the image dimensions is less than 128
+            image = crop_random(im_arr, 64)
+            image_pil = Image.fromarray(image)
+            result_images = []
+            for i in range(0, 3):
+                # upscale the cropped image three times, each time with a different upscaler
+                with self.queue_lock:
+                    result = postprocessing.run_extras(extras_mode=0, image=image_pil, image_folder="", input_dir="", output_dir="", save_output=False, **reqDict)
+                    result_images.append(result[0][0])
+
+            return models.UpscalePreviewResponse(images=list(map(encode_pil_to_base64, result_images)), html_info=result[1], temp_dir=temp_dir_path)    
+        else:
+            return models.UpscalePreviewResponse(images=[], html_info="", temp_dir="")
+        
+
     def upscale_api(self, req: models.UpscaleRequest):
         aws_access_key_id="AKIAT4UQTLJVAI4GD256"
         aws_secret_access_key="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"
@@ -773,15 +869,15 @@ class Api:
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
 
-        image = read_image_from_s3(session, bucketname, image_path)
-        if image is None:
-            raise HTTPException(status_code=404, detail="Image not found")
-    
-        # remove all "." and ":" from image paths
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = temp_dir.name
         root_image_path = os.path.join(temp_dir_path, image_path_no_ext)
         os.makedirs(root_image_path)
+
+        image = read_image_from_s3_cv2(session, bucketname, image_path)
+        if image is None:
+            raise HTTPException(status_code=404, detail="Image not found")
+    
         divided_images_path = os.path.join(root_image_path, "original")
         divided_upscaled_images_path = os.path.join(root_image_path, "upscaled")
         result_image_path = os.path.join(root_image_path, "result")
