@@ -292,7 +292,8 @@ def recombine_images_into_sections(input_dir, patches_dir, session=None, max_sid
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
-    first_patch = cv2.imread(os.path.join(input_dir, f"{0}_{0}-0000.png"))
+    im_path= os.path.join(input_dir, "0_0-0000.png")
+    first_patch = cv2.imread(im_path)
     image_height, image_width = first_patch.shape[:2]
 
     # the image is divided into a grid of rows and columns, each row and column is a patch
@@ -339,10 +340,12 @@ def compress_images(dir_path, final_file_name, session=None):
     zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w", allowZip64=True, compression=zipfile.ZIP_DEFLATED)
     # iterate over the files in the directory
     for file_name in os.listdir(dir_path):
-        # create the full path of the file
-        file_path = os.path.join(dir_path, file_name)
-        # add the file to the zip file
-        zip_file.write(file_path, file_name)
+        if file_name.endswith(".png"):
+            print("writng ", file_name)
+            # create the full path of the file
+            file_path = os.path.join(dir_path, file_name)
+            # add the file to the zip file
+            zip_file.write(file_path, file_name)
     # close the zip file
     zip_file.close()
     # get the zip file name
@@ -999,22 +1002,24 @@ class Api:
 
         # Upscale each image
         with self.queue_lock:
-            try:
-                shared.state.begin(job="Preprocessing")
-                print("image {} aquired lock".format(image_path))
-                divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
-            finally:
-                shared.state.end()
+            # try:
+            #     shared.state.begin(job="Preprocessing")
+            #     print("image {} aquired lock".format(image_path))
+            #     divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
+            # finally:
+            #     shared.state.end()
 
-            try:
-                shared.state.begin(job="Scaling")
-                result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            finally:
-                shared.state.end()
+            # try:
+            #     shared.state.begin(job="Scaling")
+            #     result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
+            # finally:
+            #     shared.state.end()
 
             try:
                 shared.state.begin(job="Writting")
                 # recombine_images(root_image_path, result_image_path, session)
+                divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
+                patches_image_path = "/tmp/tmpju5103u9/patches"
                 recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
 
             finally:
