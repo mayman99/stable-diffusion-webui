@@ -240,28 +240,125 @@ def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-
     pil_image.save(file_stream, format='png')
     object.put(Body=file_stream.getvalue())
 
+def write_zip_to_s3(session, file_path, bucket_name, s3_filename, region_name='us-east-1'):
+    """Write a zip file to an S3 bucket
+
+    Parameters
+    ----------
+    session: boto3.Session
+        The boto3 Session object
+    file_path: str
+        The local path to the zip file
+    bucket_name: str
+        The name of the S3 bucket
+    s3_filename: str
+        The destination filename in the S3 bucket
+    region_name: str, optional
+        The region name, default is 'us-east-1'
+
+    Returns
+    -------
+    None
+    """
+    s3 = session.client('s3', region_name=region_name)
+    with open(file_path, 'rb') as data:
+        s3.upload_fileobj(data, bucket_name, s3_filename)
+
+def rows_columns(file_names):
+    max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
+
+    for file_name in file_names:
+        # i = int(file_name[-5])
+        # j = int(file_name[-7])
+        # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
+        
+        # parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
+
+        # Extract values for i and j
+        # i, j = map(int, parts)
+        print(file_name)
+        numbers = re.findall(r'(\d+)_+(\d+)', file_name)
+        i, j = numbers[0]  # This will print a tuple: ('12', '1')
+
+        # Update max_i and max_j if necessary
+        max_i = max(max_i, int(i))
+        max_j = max(max_j, int(j))
+    return max_i+1, max_j+1
+
+def recombine_images_into_sections(input_dir, patches_dir, session=None, max_side=8192, max_pixels=2369536):
+    """
+    given a directory of images, combine them, if the combined image is too big to be saved, divide it into sections and save each section
+    """
+    file_names = os.listdir(os.path.join(input_dir, "upscaled"))
+    rows, columns = rows_columns(file_names)
+
+    first_patch = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
+    image_height, image_width = first_patch.shape[:2]
+
+    # the image is divided into a grid of rows and columns, each row and column is a patch
+    # calculate the number of pixels in the first row of patches
+    row_width = image_width * columns
+    # calcualte the number of rows that could fit in the max_pixels
+    section_rows = int(max_pixels / row_width)
+    # calculate the number of sections
+    sections = int(rows / section_rows)
+    parent_dir = os.path.dirname(patches_dir)
+    image_name = os.path.basename(parent_dir)
+    for section in range(sections):
+        # Create a blank canvas for the final image
+        final_image = np.zeros((section_rows * image_height, columns * image_width, 3), dtype=np.uint8)
+
+        for row in range(section_rows):
+            for col in range(columns):
+                # Open each individual image
+                image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
+                img = cv2.imread(image_path)
+
+                # Calculate the position to paste the image on the canvas
+                x_position = col * image_width
+                y_position = row * image_height
+
+                # Paste the image onto the final canvas
+                final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
+
+        # Once all images have been pasted, save the final image
+        cv2.imwrite(os.path.join(patches_dir, f"{section}.png"), final_image)
+
+    compress_images(patches_dir, image_name, session)
+
+
+def compress_images(dir_path, final_file_name, session=None):
+    """
+    compresses images in a dir and return zip file name
+    """
+    import zipfile
+    import os
+
+
+    # create a zip file in the temporary directory
+    zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w")
+    # iterate over the files in the directory
+    for file_name in os.listdir(dir_path):
+        # create the full path of the file
+        file_path = os.path.join(dir_path, file_name)
+        # add the file to the zip file
+        zip_file.write(file_path, file_name)
+    # close the zip file
+    zip_file.close()
+    # get the zip file name
+    zip_file_name = zip_file.filename
+    if session is not None:
+        write_zip_to_s3(session, zip_file_name, 'satupscale', f"{final_file_name}.zip")
+        print("written to s3")
+
+
+def write_file():
+    """
+    given s3 session and zip file pat, write the zipfile to s3
+    """
+    return None
+
 def recombine_images(input_dir, output_file_path, session=None):
-    def rows_columns(file_names):
-        max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
-
-        for file_name in file_names:
-            # i = int(file_name[-5])
-            # j = int(file_name[-7])
-            # parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
-            
-            # parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
-
-            # Extract values for i and j
-            # i, j = map(int, parts)
-            print(file_name)
-            numbers = re.findall(r'(\d+)_+(\d+)', file_name)
-            i, j = numbers[0]  # This will print a tuple: ('12', '1')
-
-            # Update max_i and max_j if necessary
-            max_i = max(max_i, int(i))
-            max_j = max(max_j, int(j))
-        return max_i+1, max_j+1
-
     file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
@@ -878,6 +975,7 @@ class Api:
         divided_images_path = os.path.join(root_image_path, "original")
         divided_upscaled_images_path = os.path.join(root_image_path, "upscaled")
         result_image_path = os.path.join(root_image_path, "result")
+        patches_image_path = os.path.join(root_image_path, "patches")
         print(root_image_path)
         # make a new dir
         if not os.path.exists(divided_images_path):
@@ -886,7 +984,8 @@ class Api:
             os.makedirs(divided_upscaled_images_path)
         if not os.path.exists(result_image_path):
             os.makedirs(result_image_path)
-
+        if not os.path.exists(patches_image_path):
+            os.makedirs(patches_image_path)
         scale = 2
         overlap = 5
         scaled_overlap = scale * overlap
@@ -915,7 +1014,9 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                recombine_images(root_image_path, result_image_path, session)
+                # recombine_images(root_image_path, result_image_path, session)
+                recombine_images_into_sections(root_image_path, patches_image_path, session)
+
             finally:
                 shared.state.end()
 
