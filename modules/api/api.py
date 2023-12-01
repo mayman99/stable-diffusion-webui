@@ -311,7 +311,7 @@ def recombine_images_into_sections(input_dir, patches_dir, session=None, max_sid
         for row in range(section_rows):
             for col in range(columns):
                 # Open each individual image
-                image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
+                image_path = os.path.join(input_dir, "upscaled", f"{row+section*section_rows}_{col}-0000.png")
                 img = cv2.imread(image_path)
 
                 # Calculate the position to paste the image on the canvas
@@ -320,7 +320,7 @@ def recombine_images_into_sections(input_dir, patches_dir, session=None, max_sid
 
                 # Paste the image onto the final canvas
                 final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
-
+        print(f"writing section {section}")
         # Once all images have been pasted, save the final image
         cv2.imwrite(os.path.join(patches_dir, f"{section}.png"), final_image)
 
