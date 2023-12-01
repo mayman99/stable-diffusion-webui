@@ -335,9 +335,8 @@ def compress_images(dir_path, final_file_name, session=None):
     import zipfile
     import os
 
-
     # create a zip file in the temporary directory
-    zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w")
+    zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w", allowZip64=True, compression=zipfile.ZIP_DEFLATED)
     # iterate over the files in the directory
     for file_name in os.listdir(dir_path):
         # create the full path of the file
