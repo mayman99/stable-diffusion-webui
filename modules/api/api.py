@@ -289,10 +289,10 @@ def recombine_images_into_sections(input_dir, patches_dir, session=None, max_sid
     """
     given a directory of images, combine them, if the combined image is too big to be saved, divide it into sections and save each section
     """
-    file_names = os.listdir(os.path.join(input_dir, "upscaled"))
+    file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
-    first_patch = cv2.imread(os.path.join(input_dir, "upscaled", f"{0}_{0}-0000.png"))
+    first_patch = cv2.imread(os.path.join(input_dir, f"{0}_{0}-0000.png"))
     image_height, image_width = first_patch.shape[:2]
 
     # the image is divided into a grid of rows and columns, each row and column is a patch
@@ -311,7 +311,8 @@ def recombine_images_into_sections(input_dir, patches_dir, session=None, max_sid
         for row in range(section_rows):
             for col in range(columns):
                 # Open each individual image
-                image_path = os.path.join(input_dir, "upscaled", f"{row+section*section_rows}_{col}-0000.png")
+                image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
+                print(row+section*section_rows, image_path)
                 img = cv2.imread(image_path)
 
                 # Calculate the position to paste the image on the canvas
@@ -1015,7 +1016,7 @@ class Api:
             try:
                 shared.state.begin(job="Writting")
                 # recombine_images(root_image_path, result_image_path, session)
-                recombine_images_into_sections(root_image_path, patches_image_path, session)
+                recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
 
             finally:
                 shared.state.end()
