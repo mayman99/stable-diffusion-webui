@@ -1,9 +1,11 @@
 import numpy as np
+import os
+os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
+
 import cv2
 import tifffile as tif
 from io import BytesIO
 from PIL import Image
-import os
 
 def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
 

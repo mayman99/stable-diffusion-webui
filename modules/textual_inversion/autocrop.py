@@ -1,6 +1,8 @@
+
+import os
+os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
 import cv2
 import requests
-import os
 import numpy as np
 from PIL import ImageDraw
 

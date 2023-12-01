@@ -11,6 +11,8 @@ import torch
 import numpy as np
 from PIL import Image, ImageOps
 import random
+os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
+
 import cv2
 from skimage import exposure
 from typing import Any

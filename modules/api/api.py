@@ -215,8 +215,6 @@ def divide_and_save_from_memory(image, output_dir, ext, max_side):
             else:
                 cv2.imwrite(patch_file_path, patch)
 
-
-
 # Write image back to bucket
 def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-east-1'):
     """Write an image array into S3 bucket
@@ -240,8 +238,6 @@ def write_image_to_s3(session, pil_image, bucketname, filename, region_name='us-
     file_stream = BytesIO()
     pil_image.save(file_stream, format='png')
     object.put(Body=file_stream.getvalue())
-
-
 
 def recombine_images(input_dir, output_file_path, session=None):
     def rows_columns(file_names):

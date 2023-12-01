@@ -42,6 +42,7 @@ class Upscaler:
             os.makedirs(self.model_path, exist_ok=True)
 
         try:
+            os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
             import cv2  # noqa: F401
             self.can_tile = True
         except Exception:
