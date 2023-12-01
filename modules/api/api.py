@@ -276,7 +276,7 @@ def rows_columns(file_names):
 
         # Extract values for i and j
         # i, j = map(int, parts)
-        print(file_name)
+        # print(file_name)
         numbers = re.findall(r'(\d+)_+(\d+)', file_name)
         i, j = numbers[0]  # This will print a tuple: ('12', '1')
 
@@ -385,7 +385,7 @@ def recombine_images(input_dir, output_file_path, session=None):
     cv2.imwrite(output_file_path, final_image)
     parent_dir = os.path.dirname(output_file_path)
     image_name = os.path.basename(parent_dir)
-    print(image_name)
+    # print(image_name)
     if session is not None:
         write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
         print("written {}.png to s3".format(image_name))
