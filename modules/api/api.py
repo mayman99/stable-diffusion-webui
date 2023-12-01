@@ -91,6 +91,7 @@ def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1
     response = object.get()
     file_stream = response['Body']
     image = np.asarray(bytearray(file_stream.read()), dtype="uint8")
+    print(image.shape)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     return image
 
