@@ -1002,25 +1002,25 @@ class Api:
 
         # Upscale each image
         with self.queue_lock:
-            # try:
-            #     shared.state.begin(job="Preprocessing")
-            #     print("image {} aquired lock".format(image_path))
-            #     divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
-            # finally:
-            #     shared.state.end()
+            try:
+                shared.state.begin(job="Preprocessing")
+                print("image {} aquired lock".format(image_path))
+                divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
+            finally:
+                shared.state.end()
 
-            # try:
-            #     shared.state.begin(job="Scaling")
-            #     result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
-            # finally:
-            #     shared.state.end()
+            try:
+                shared.state.begin(job="Scaling")
+                result = postprocessing.run_extras(extras_mode=2, image_folder="", image="", input_dir=divided_images_path, output_dir=divided_upscaled_images_path, save_output=True, **reqDict)
+            finally:
+                shared.state.end()
 
             try:
                 shared.state.begin(job="Writting")
-                # recombine_images(root_image_path, result_image_path, session)
-                divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
-                patches_image_path = "/tmp/tmpju5103u9/patches"
-                recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
+                recombine_images(root_image_path, result_image_path, session)
+                # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
+                # patches_image_path = "/tmp/tmpju5103u9/patches"
+                # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
 
             finally:
                 shared.state.end()
