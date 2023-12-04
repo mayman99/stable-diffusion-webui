@@ -1052,7 +1052,7 @@ class Api:
             # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
         print("image {} released lock".format(image_path_no_ext))
-        temp_dir.cleanup()
+        # temp_dir.cleanup()
 
         with self.clients_queue_lock:
             self.clients_queue.popleft()
