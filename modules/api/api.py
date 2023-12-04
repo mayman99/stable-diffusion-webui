@@ -388,7 +388,6 @@ def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_s
 
     for section in range(sections):
         final_image = Image.new('RGB', (columns * image_width, section_rows * image_height))
-        section += 1
         for row in range(section_rows):
             for col in range(columns):
                 image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
@@ -400,10 +399,9 @@ def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_s
             print('row ', row)
         
         p = os.path.join(patches_dir, f"{section}.png")
+        print(p)
         final_image.save(p, optimize=True)
         del final_image
-        print('section ', section)    
-        print(p)
         print('section ', section)    
         
     compress_images(patches_dir, image_name, session)
@@ -1045,7 +1043,7 @@ class Api:
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
-                recombine_images_into_sections_5(divided_upscaled_images_path, patches_image_path, session)
+                recombine_images_into_sections_4(divided_upscaled_images_path, patches_image_path, session)
 
 
             finally:
