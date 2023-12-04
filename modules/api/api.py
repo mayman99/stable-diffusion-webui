@@ -25,6 +25,8 @@ import numpy as np
 from collections import deque
 import tempfile
 import re
+import math
+import tifffile as tf
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
@@ -34,7 +36,7 @@ from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusion
 from modules.textual_inversion.textual_inversion import create_embedding, train_embedding
 from modules.textual_inversion.preprocess import preprocess
 from modules.hypernetworks.hypernetwork import create_hypernetwork, train_hypernetwork
-from PIL import PngImagePlugin,Image
+from PIL import PngImagePlugin,Image, ImageFile
 from modules.sd_models import unload_model_weights, reload_model_weights, checkpoint_aliases
 from modules.sd_models_config import find_checkpoint_config_near_filename
 from modules.realesrgan_model import get_realesrgan_models
@@ -92,6 +94,26 @@ def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1
     file_stream = response['Body']
     image = np.asarray(bytearray(file_stream.read()), dtype="uint8")
     print(image.shape)
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    return image
+
+def read_from_url(url):
+    """Load image file from s3.
+
+    Parameters
+    ----------
+    bucketname: string
+        Bucket name
+    filename : string
+        Path in s3
+
+    Returns
+    -------
+    np array
+        Image array
+    """
+    response = requests.get(url)
+    image = np.asarray(bytearray(response.content), dtype="uint8")
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     return image
 
@@ -285,49 +307,106 @@ def rows_columns(file_names):
         max_j = max(max_j, int(j))
     return max_i+1, max_j+1
 
-def recombine_images_into_sections(input_dir, patches_dir, session=None, max_side=8192, max_pixels=2369536):
-    """
-    given a directory of images, combine them, if the combined image is too big to be saved, divide it into sections and save each section
-    """
+
+def recombine_images_tiff(input_dir, output_file_path, session=None):
+    file_names = os.listdir(os.path.join(input_dir))
+    rows, columns = rows_columns(file_names)
+    # TODO: remove this!    
+    rows = int(rows/2)
+
+    with tf.TiffWriter(os.path.join(output_file_path, "full_result.tif"), bigtiff=True) as tif:
+        for row in range(rows):
+            for col in range(columns):
+                # Open each individual image
+                image_path = os.path.join(input_dir, f"{row}_{col}-0000.png")
+                img = cv2.imread(image_path)
+                # Convert the image to numpy array and save
+                tif.save(np.array(img), compress='deflate')
+
+
+def recombine_images_into_sections_5(input_dir, patches_dir, session=None, max_side=8192, max_pixels=2369536, quality=90):
+    
+    # Increase PIL buffer sive
+    ImageFile.MAXBLOCK = 2**40
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
-    im_path= os.path.join(input_dir, "0_0-0000.png")
-    first_patch = cv2.imread(im_path)
+    first_patch = cv2.imread(os.path.join(input_dir, "0_0-0000.png"))
     image_height, image_width = first_patch.shape[:2]
 
-    # the image is divided into a grid of rows and columns, each row and column is a patch
-    # calculate the number of pixels in the first row of patches
     row_width = image_width * columns
-    # calcualte the number of rows that could fit in the max_pixels
-    section_rows = int(max_pixels / row_width)
-    # calculate the number of sections
-    sections = int(rows / section_rows)
+    section_rows = int(math.floor(max_pixels / row_width))  # round up to the nearest integer
+    sections = rows // section_rows  # round up to the nearest integer
+
+    final_section = (rows / section_rows) - (rows // section_rows)
+    print("section_rows ", section_rows)
+    print("sections ", sections)
+    print("final_section ", final_section)
+
+    # TODO write final secion to image
+    
     parent_dir = os.path.dirname(patches_dir)
     image_name = os.path.basename(parent_dir)
-    for section in range(sections):
-        # Create a blank canvas for the final image
-        final_image = np.zeros((section_rows * image_height, columns * image_width, 3), dtype=np.uint8)
 
+    for section in range(sections):
+        final_image = Image.new('RGB', (columns * image_width, section_rows * image_height))
         for row in range(section_rows):
             for col in range(columns):
-                # Open each individual image
                 image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
-                print(row+section*section_rows, image_path)
-                img = cv2.imread(image_path)
 
-                # Calculate the position to paste the image on the canvas
+                img = Image.open(image_path)
                 x_position = col * image_width
                 y_position = row * image_height
-
-                # Paste the image onto the final canvas
-                final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
-        print(f"writing section {section}")
-        # Once all images have been pasted, save the final image
-        cv2.imwrite(os.path.join(patches_dir, f"{section}.png"), final_image)
-
+                final_image.paste(img, (x_position, y_position))
+        
+        p = os.path.join(patches_dir, f"{section}.jpg")
+        print(p)
+        final_image.save(p, 'JPEG', quality=quality, optimize=True)
+        del final_image
+        print('section ', section)    
+        
     compress_images(patches_dir, image_name, session)
 
+def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_side=8192, max_pixels=2369536, quality=90):
+    file_names = os.listdir(input_dir)
+    rows, columns = rows_columns(file_names)
+
+    first_patch = cv2.imread(os.path.join(input_dir, "0_0-0000.png"))
+    image_height, image_width = first_patch.shape[:2]
+
+    row_width = image_width * columns
+    section_rows = int(math.floor(max_pixels / row_width))  # round up to the nearest integer
+    sections = rows // section_rows  # round up to the nearest integer
+
+    final_section = (rows / section_rows) - (rows // section_rows)
+    print("section_rows ", section_rows)
+    print("sections ", sections)
+    print("final_section ", final_section)
+    
+    parent_dir = os.path.dirname(patches_dir)
+    image_name = os.path.basename(parent_dir)
+
+    for section in range(sections):
+        final_image = Image.new('RGB', (columns * image_width, section_rows * image_height))
+        section += 1
+        for row in range(section_rows):
+            for col in range(columns):
+                image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
+
+                img = Image.open(image_path)
+                x_position = col * image_width
+                y_position = row * image_height
+                final_image.paste(img, (x_position, y_position))
+            print('row ', row)
+        
+        p = os.path.join(patches_dir, f"{section}.png")
+        final_image.save(p, optimize=True)
+        del final_image
+        print('section ', section)    
+        print(p)
+        print('section ', section)    
+        
+    compress_images(patches_dir, image_name, session)
 
 def compress_images(dir_path, final_file_name, session=None):
     """
@@ -393,71 +472,6 @@ def recombine_images(input_dir, output_file_path, session=None):
         write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
         print("written {}.png to s3".format(image_name))
 
-# def recombine_images_with_overlap(input_dir, output_file_path, overlap=20, session=None):
-#     def rows_columns(file_names):
-#         max_i = max_j = -1  # Initialize max_i and max_j with negative infinity
-
-#         for file_name in file_names:
-#             # parts = file_name[:-9].split("_")  # Remove "-0000.png" and split the remaining string
-#             parts = file_name[:-4].split("_")  # Remove ".png" and split the remaining string
-
-#             # Extract values for i and j
-#             i, j = map(int, parts)
-
-#             # Update max_i and max_j if necessary
-#             max_i = max(max_i, i)
-#             max_j = max(max_j, j)
-
-#         return max_i+1, max_j+1
-
-#     file_names = os.listdir(input_dir + "/upscaled")
-#     rows, columns = rows_columns(file_names)
-#     # first_patch = cv2.imread(f"{input_dir}/{0}_{0}.png")
-#     first_patch = cv2.imread(f"{input_dir}/upscaled/{0}_{0}-0000.png")
-#     image_height, image_width = first_patch.shape[:2]
-#     image_height -= overlap
-#     image_width -= overlap
-    
-#     print(image_width, columns)
-#     # Create a blank canvas for the final image
-
-#     final_image = Image.new('RGB', (columns * image_width, rows * image_height))
-#     final_array = np.array((columns * image_width, rows * image_height, 3))
-
-#     for row in range(rows):
-#         for col in range(columns):
-#             # Open each individual image
-#             # image_path = f"{input_dir}/{row}_{col}.png"
-#             image_path = f"{input_dir}/upscaled/{row}_{col}-0000.png"
-#             img = cv2.imread(image_path)
-#             current_image_height, current_image_width = first_patch.shape[:2]
-
-#             overlap_height_neg = overlap if row == 0 else 0
-#             overlap_height_pos = 0 if row == rows - 1 else overlap
-#             overlap_width_neg = overlap if col == 0 else 0
-#             overlap_width_pos = 0 if col == columns - 1 else overlap
-
-#             x_position = col * image_width
-#             y_position = row * image_height
-
-#             img_array = img[
-#                 overlap - overlap_height_neg : current_image_height,
-#                 overlap - overlap_width_neg : current_image_width
-#             ]
-
-#             img_array = img_array[:, :, ::-1]
-#             img_result = Image.fromarray(img_array)
-    
-#             # Paste the image onto the final canvas
-#             final_image.paste(img_result, (x_position, y_position))
-
-#     output_path = f"{output_file_path}.png"
-#     final_image.save(output_path)
-#     image_name = output_file_path.split("outputs/")[1].split("/")[0]
-#     print(image_name)
-#     if session is not None:
-#         write_image_to_s3(session, final_image, 'satupscale', f"{image_name}_result.png")
-#         print("written to s3")
 
 def script_name_to_index(name, scripts):
     try:
@@ -959,10 +973,24 @@ class Api:
         bucketname="satupscale"
         reqDict = setUpscalers(req)
         image_path = reqDict.pop('imagePath', "")
+        image_url = reqDict.pop('imageURL', "")
         client_id = reqDict.pop('client_id', "")
-        print("upscale request recived for image {}".format(image_path))
-        image_path_no_ext = image_path[:-4]
-        image_ext = image_path[-4:]
+        image_path_no_ext = ""
+        image_ext = ""
+    
+        if image_url != "":
+            image = read_from_url(image_url)
+            image_path_no_ext = image_path[:-4]
+            image_ext = image_path[-4:]
+
+        elif image_path != "":
+            image = read_image_from_s3_cv2(session, bucketname, image_path)
+            image_path_no_ext = image_path[:-4]
+            image_ext = image_path[-4:]
+
+        if image is None:
+            raise HTTPException(status_code=404, detail="Image not found")
+
         if image_path == "":
             raise HTTPException(status_code=404, detail="Image not found")
 
@@ -970,10 +998,6 @@ class Api:
         temp_dir_path = temp_dir.name
         root_image_path = os.path.join(temp_dir_path, image_path_no_ext)
         os.makedirs(root_image_path)
-
-        image = read_image_from_s3_cv2(session, bucketname, image_path)
-        if image is None:
-            raise HTTPException(status_code=404, detail="Image not found")
     
         divided_images_path = os.path.join(root_image_path, "original")
         divided_upscaled_images_path = os.path.join(root_image_path, "upscaled")
@@ -993,7 +1017,7 @@ class Api:
         overlap = 5
         scaled_overlap = scale * overlap
 
-        print("image {} before lock".format(image_path))
+        print("image {} before lock".format(image_path_no_ext))
         
         # queue_lock is used to prevent multiple requests from being processed at the same time.
         # client_id is used to track which client request is being processed and the position of the cleint in the waiting queue.
@@ -1004,7 +1028,7 @@ class Api:
         with self.queue_lock:
             try:
                 shared.state.begin(job="Preprocessing")
-                print("image {} aquired lock".format(image_path))
+                print("image {} aquired lock".format(image_path_no_ext))
                 divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
             finally:
                 shared.state.end()
@@ -1017,23 +1041,25 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                recombine_images(root_image_path, result_image_path, session)
+                # recombine_images(root_image_path, result_image_path, session)
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
+                recombine_images_into_sections_5(divided_upscaled_images_path, patches_image_path, session)
+
 
             finally:
                 shared.state.end()
 
             # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
-        print("image {} released lock".format(image_path))
+        print("image {} released lock".format(image_path_no_ext))
         temp_dir.cleanup()
 
         with self.clients_queue_lock:
             self.clients_queue.popleft()
 
-        return models.UpscaleResponse(imagePath=image_path, html_info=result[1])
+        return models.UpscaleResponse(imagePath=image_path_no_ext, html_info=result[1])
 
     def pnginfoapi(self, req: models.PNGInfoRequest):
         if(not req.image.strip()):
