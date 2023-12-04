@@ -165,7 +165,9 @@ class ExtrasSingleImageResponse(ExtraBaseResponse):
 
 class UpscaleRequest(ExtrasBaseRequest):
     client_id: str = Field(default="", title="Client ID", description="Client ID used to identify the client.")
-    imagePath: str = Field(title="Image path", description="The path of the input image.")
+    imageURL: str = Field(default="", title="Image URL", description="The URL of the input image.")
+    imagePath: str = Field(default="", title="Image path", description="The path of the input image.")
+
 class UpscaleResponse(ExtraBaseResponse):
     imagePath: str = Field(title="Image path", description="The path of the result image.")
 
