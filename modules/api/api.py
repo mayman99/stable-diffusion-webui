@@ -440,6 +440,8 @@ def write_file():
     return None
 
 def recombine_images(input_dir, output_file_path, session=None):
+
+    image_full_path = output_file_path + ".png"
     file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
@@ -463,8 +465,8 @@ def recombine_images(input_dir, output_file_path, session=None):
             final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
 
     # Once all images have been pasted, save the final image
-    cv2.imwrite(output_file_path, final_image)
-    parent_dir = os.path.dirname(output_file_path)
+    cv2.imwrite(image_full_path, final_image)
+    parent_dir = os.path.dirname(image_full_path)
     image_name = os.path.basename(parent_dir)
     # print(image_name)
     if session is not None:
