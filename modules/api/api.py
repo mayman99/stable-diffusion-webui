@@ -418,12 +418,11 @@ def compress_images(dir_path, final_file_name, session=None):
     zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w", allowZip64=True, compression=zipfile.ZIP_DEFLATED)
     # iterate over the files in the directory
     for file_name in os.listdir(dir_path):
-        if file_name.endswith(".png"):
-            print("writng ", file_name)
-            # create the full path of the file
-            file_path = os.path.join(dir_path, file_name)
-            # add the file to the zip file
-            zip_file.write(file_path, file_name)
+        print("writng ", file_name)
+        # create the full path of the file
+        file_path = os.path.join(dir_path, file_name)
+        # add the file to the zip file
+        zip_file.write(file_path, file_name)
     # close the zip file
     zip_file.close()
     # get the zip file name
@@ -470,7 +469,8 @@ def recombine_images(input_dir, output_file_path, session=None):
     image_name = os.path.basename(parent_dir)
     # print(image_name)
     if session is not None:
-        write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
+        compress_images(parent_dir, image_name, session)
+        # write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
         print("written {}.png to s3".format(image_name))
 
 
