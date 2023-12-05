@@ -232,7 +232,7 @@ def divide_and_save_from_memory(image, output_dir, ext, max_side):
             patch = image[i * patch_height_size: (i + 1) * patch_height_size, j * patch_width_size: (j + 1) * patch_width_size]
 
             # Save the patch
-            patch_file_path = os.path.join(output_dir, f"{i}_{j}.png")
+            patch_file_path = os.path.join(output_dir, f"{i}_{j}.jpg")
             if ext == "tif":
                 cv2.imwrite(patch_file_path, cv2.cvtColor(patch, cv2.COLOR_RGB2BGR))
             else:
@@ -939,6 +939,9 @@ class Api:
             # create it
             temp_dir = tempfile.TemporaryDirectory()
             temp_dir_path = temp_dir.name
+
+            temp_dir_path = "/workspace/data_24"
+
             # downaload image from s3
             im_arr = download_s3_image(session, bucketname, image_path, temp_dir_path)
 
