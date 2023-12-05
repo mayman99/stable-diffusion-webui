@@ -195,7 +195,7 @@ def configure_cors_middleware(app):
         "allow_credentials": True,
     }
     cors_options["allow_origins"] = [
-        # "http://localhost:5500",
+        "http://localhost:5500",
         # "http://localhost:3000",
         # "http://localhost:3000/*",
         # "https://localhost:3000",

@@ -402,9 +402,10 @@ def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_s
         print(p)
         final_image.save(p, optimize=True)
         del final_image
-        print('section ', section)    
-        
+        print('section ', section)   
+
     compress_images(patches_dir, image_name, session)
+
 
 def compress_images(dir_path, final_file_name, session=None):
     """
@@ -998,9 +999,6 @@ class Api:
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = temp_dir.name
 
-
-        temp_dir_path = "/workspace/data_24"
-
         root_image_path = os.path.join(temp_dir_path, image_path_no_ext)
         os.makedirs(root_image_path)
     
@@ -1046,12 +1044,11 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                # recombine_images(root_image_path, result_image_path, session)
+                recombine_images(root_image_path, result_image_path, session)
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
-                recombine_images_into_sections_4(divided_upscaled_images_path, patches_image_path, session)
-
+                # recombine_images_into_sections_4(divided_upscaled_images_path, patches_image_path, session)
 
             finally:
                 shared.state.end()
@@ -1059,7 +1056,7 @@ class Api:
             # divide_with_overlap(image, divided_images_path, image_path, max_side=2048, overlap=overlap)
             # recombine_images_with_overlap(root_image_path, result_image_path, scaled_overlap, session)
         print("image {} released lock".format(image_path_no_ext))
-        # temp_dir.cleanup()
+        temp_dir.cleanup()
 
         with self.clients_queue_lock:
             self.clients_queue.popleft()
