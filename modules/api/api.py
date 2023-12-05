@@ -465,14 +465,13 @@ def recombine_images(input_dir, output_file_path, session=None):
     # Once all images have been pasted, save the final image
     parent_dir = os.path.dirname(output_file_path)
     image_name = os.path.basename(parent_dir)
-    cv2.imwrite(output_file_path, final_image)
+    cv2.imwrite(os.path.join(output_file_path, "result.png"), final_image)
 
     # print(image_name)
     if session is not None:
         compress_images(output_file_path, image_name, session)
         # write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
         print("written {}.png to s3".format(image_name))
-
 
 def script_name_to_index(name, scripts):
     try:
