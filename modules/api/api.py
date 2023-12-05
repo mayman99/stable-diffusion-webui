@@ -440,7 +440,6 @@ def write_file():
 
 def recombine_images(input_dir, output_file_path, session=None):
 
-    image_full_path = output_file_path + ".png"
     file_names = os.listdir(os.path.join(input_dir, "upscaled"))
     rows, columns = rows_columns(file_names)
 
@@ -464,12 +463,13 @@ def recombine_images(input_dir, output_file_path, session=None):
             final_image[y_position:y_position+image_height, x_position:x_position+image_width] = img
 
     # Once all images have been pasted, save the final image
-    cv2.imwrite(image_full_path, final_image)
-    parent_dir = os.path.dirname(image_full_path)
+    parent_dir = os.path.dirname(output_file_path)
     image_name = os.path.basename(parent_dir)
+    cv2.imwrite(output_file_path, final_image)
+
     # print(image_name)
     if session is not None:
-        compress_images(parent_dir, image_name, session)
+        compress_images(output_file_path, image_name, session)
         # write_image_to_s3(session, final_image, 'satupscale', f"result_{image_name}.png")
         print("written {}.png to s3".format(image_name))
 
