@@ -997,6 +997,10 @@ class Api:
 
         temp_dir = tempfile.TemporaryDirectory()
         temp_dir_path = temp_dir.name
+
+
+        temp_dir_path = "/workspace/data_24"
+
         root_image_path = os.path.join(temp_dir_path, image_path_no_ext)
         os.makedirs(root_image_path)
     
