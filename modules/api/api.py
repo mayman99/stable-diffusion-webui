@@ -414,6 +414,11 @@ def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_s
     compress_images(patches_dir, image_name, session)
 
 def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quality=90, session=None):
+    """
+    :param: input_dir str, path to the directory containing scaled images
+    :param: output_dir str, path to the directory where the final image will be saved
+
+    """
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
@@ -1107,8 +1112,8 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                recombine_images(root_image_path, result_image_path, session)
-                # recombine_and_save_images_6(divided_upscaled_images_path, result_image_path, session=session)
+                # recombine_images(root_image_path, result_image_path, session)
+                recombine_and_save_images_6(divided_upscaled_images_path, result_image_path, session=session)
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
