@@ -485,11 +485,12 @@ def compress_images(dir_path, final_file_name, session=None):
     zip_file = zipfile.ZipFile(os.path.join(dir_path, final_file_name + ".zip"), "w", allowZip64=True, compression=zipfile.ZIP_DEFLATED)
     # iterate over the files in the directory
     for file_name in os.listdir(dir_path):
-        print("writng ", file_name)
-        # create the full path of the file
-        file_path = os.path.join(dir_path, file_name)
-        # add the file to the zip file
-        zip_file.write(file_path, file_name)
+        if not file_name.endswith(".zip"):
+            print("writng ", file_name)
+            # create the full path of the file
+            file_path = os.path.join(dir_path, file_name)
+            # add the file to the zip file
+            zip_file.write(file_path, file_name)
     # close the zip file
     zip_file.close()
     # get the zip file name
