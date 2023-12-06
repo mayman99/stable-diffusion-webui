@@ -1107,9 +1107,8 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                # recombine_images(root_image_path, result_image_path, session)
-                if not recombine_and_save_images_6(divided_upscaled_images_path, result_image_path, session=session):
-                    print("image was too big")
+                recombine_images(root_image_path, result_image_path, session)
+                # recombine_and_save_images_6(divided_upscaled_images_path, result_image_path, session=session)
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
