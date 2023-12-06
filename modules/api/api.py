@@ -368,6 +368,13 @@ def recombine_images_into_sections_5(input_dir, patches_dir, session=None, max_s
     compress_images(patches_dir, image_name, session)
 
 def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_side=8192, max_pixels=2369536, quality=90):
+    """
+    If the max_pixels exceed one full row, then image is too large to be saved, return -1
+    If max_pixels is less than the full image, recombine into one single image andt then save and compress it, and return 1
+    Otherwise:
+        Divide the image into sections, save each section as a separate image, and return 1
+        The image is divided into sections by rows, and each section is saved as a separate image 
+    """
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
@@ -406,6 +413,61 @@ def recombine_images_into_sections_4(input_dir, patches_dir, session=None, max_s
 
     compress_images(patches_dir, image_name, session)
 
+def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quality=90, session=None):
+    file_names = os.listdir(input_dir)
+    rows, columns = rows_columns(file_names)
+
+    first_patch = cv2.imread(os.path.join(input_dir, "0_0-0000.jpg"))
+    image_height, image_width = first_patch.shape[:2]
+
+    row_width = image_width * columns
+    image_size = row_width * rows
+
+    parent_dir = os.path.dirname(output_dir)
+    image_name = os.path.basename(parent_dir)
+
+    # If the max_pixels exceed one full row, then image is too large to be saved
+    if max_pixels < row_width:
+        return -1
+
+    # If max_pixels is less than the full image, recombine into one single image and then save and compress it
+    elif max_pixels >= image_size:
+        final_image = Image.new('RGB', (columns * image_width, rows * image_height))
+        for row in range(rows):
+            for col in range(columns):
+                image_path = os.path.join(input_dir, f"{row}_{col}-0000.jpg")
+                img = Image.open(image_path)
+                final_image.paste(img, (col * image_width, row * image_height))
+        final_image.save(os.path.join(output_dir, "full_result.png"), optimize=True)
+        compress_images(output_dir, image_name, session)
+        return 1
+
+    else:
+        section_rows = int(math.floor(max_pixels / row_width))  # round up to the nearest integer
+        sections = rows // section_rows  # round up to the nearest integer
+        remainder = rows % section_rows
+
+        for section in range(sections):
+            final_image = Image.new('RGB', (columns * image_width, section_rows * image_height))
+            for row in range(section_rows):
+                for col in range(columns):
+                    image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.jpg")
+                    img = Image.open(image_path)
+                    final_image.paste(img, (col * image_width, row * image_height))
+            final_image.save(os.path.join(output_dir, f"section_{section}.png"), optimize=True)
+
+        # Handle the remainder rows
+        if remainder > 0:
+            final_image = Image.new('RGB', (columns * image_width, remainder * image_height))
+            for row in range(remainder):
+                for col in range(columns):
+                    image_path = os.path.join(input_dir, f"{row+sections*section_rows}_{col}-0000.jpg")
+                    img = Image.open(image_path)
+                    final_image.paste(img, (col * image_width, row * image_height))
+            final_image.save(os.path.join(output_dir, f"section_{sections}.png"), optimize=True)
+
+        compress_images(output_dir, image_name, session)
+        return 1
 
 def compress_images(dir_path, final_file_name, session=None):
     """
@@ -1045,7 +1107,9 @@ class Api:
 
             try:
                 shared.state.begin(job="Writting")
-                recombine_images(root_image_path, result_image_path, session)
+                # recombine_images(root_image_path, result_image_path, session)
+                if not recombine_and_save_images_6(divided_upscaled_images_path, result_image_path, session=session):
+                    print("image was too big")
                 # divided_upscaled_images_path = "/tmp/tmpju5103u9/upscaled"
                 # patches_image_path = "/tmp/tmpju5103u9/patches"
                 # recombine_images_into_sections(divided_upscaled_images_path, patches_image_path, session)
