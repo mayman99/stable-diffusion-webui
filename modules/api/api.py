@@ -422,7 +422,7 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
     file_names = os.listdir(input_dir)
     rows, columns = rows_columns(file_names)
 
-    first_patch = cv2.imread(os.path.join(input_dir, "0_0-0000.jpg"))
+    first_patch = cv2.imread(os.path.join(input_dir, "0_0-0000.png"))
     image_height, image_width = first_patch.shape[:2]
 
     row_width = image_width * columns
@@ -440,7 +440,7 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
         final_image = Image.new('RGB', (columns * image_width, rows * image_height))
         for row in range(rows):
             for col in range(columns):
-                image_path = os.path.join(input_dir, f"{row}_{col}-0000.jpg")
+                image_path = os.path.join(input_dir, f"{row}_{col}-0000.png")
                 img = Image.open(image_path)
                 final_image.paste(img, (col * image_width, row * image_height))
         final_image.save(os.path.join(output_dir, "full_result.png"), optimize=True)
@@ -456,7 +456,7 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
             final_image = Image.new('RGB', (columns * image_width, section_rows * image_height))
             for row in range(section_rows):
                 for col in range(columns):
-                    image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.jpg")
+                    image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
                     img = Image.open(image_path)
                     final_image.paste(img, (col * image_width, row * image_height))
             final_image.save(os.path.join(output_dir, f"section_{section}.png"), optimize=True)
@@ -466,7 +466,7 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
             final_image = Image.new('RGB', (columns * image_width, remainder * image_height))
             for row in range(remainder):
                 for col in range(columns):
-                    image_path = os.path.join(input_dir, f"{row+sections*section_rows}_{col}-0000.jpg")
+                    image_path = os.path.join(input_dir, f"{row+sections*section_rows}_{col}-0000.png")
                     img = Image.open(image_path)
                     final_image.paste(img, (col * image_width, row * image_height))
             final_image.save(os.path.join(output_dir, f"section_{sections}.png"), optimize=True)
