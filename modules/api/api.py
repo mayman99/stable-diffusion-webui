@@ -4,7 +4,7 @@ import io
 # Avoid decompression bomb errors
 import os
 os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = pow(2,40).__str__()
-
+from sys import platform
 import time
 import datetime
 import uvicorn
@@ -48,7 +48,59 @@ from contextlib import closing
 
 # ################
 
-def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
+def crop_random(image, scale, result_shape=[600, 400]):
+    """
+    :param image is numpy array like image or a PIL Image
+    """
+    crop_shape = [int(x / scale) for x in result_shape]
+
+    # If the image is a PIL Image, convert it to a numpy array
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+
+    height, width = image.shape[:2]
+
+    # Ensure the crop size is not larger than the image size
+    crop_height = min(crop_shape[0], height)
+    crop_width = min(crop_shape[1], width)
+
+    # # Ensure the crop size is not smaller than the smallest allowed size
+    # crop_height = max(crop_height, smallest_size)
+    # crop_width = max(crop_width, smallest_size)
+
+    x = np.random.randint(0, width - crop_width + 1)
+    y = np.random.randint(0, height - crop_height + 1)
+    crop = image[y:y+crop_height, x:x+crop_width]
+    return crop  
+
+def get_original_image(original_images_dir, image_url, image_key, image_name, bucketname, session):
+    """
+    search for the image in original_images_dir
+    if it exists in original_images_dir return it.
+    if not, download it from s3 and save it in original_images_dir, and then return it
+    if it doesn't exist in s3, return None
+    """
+    for image_name_ in os.listdir(original_images_dir):
+        if image_name_ == image_name:
+            print("image found at fixed dir")
+            # if it exists, return it
+            im = Image.open(os.path.join(original_images_dir, image_name))
+            im_arr = np.array(im)
+            return im_arr
+
+    # if it doesn't exist, download it from s3 or from url
+    if image_url != "":
+        print("image found at url")
+        return read_from_url(image_url, os.path.join(original_images_dir, image_name))
+            
+    elif image_key != "":
+        print("image found at s3")
+        return read_image_from_s3_cv2(session, bucketname, image_key, write_path=os.path.join(original_images_dir, image_key))
+
+    # if it doesn't exist in s3, return None
+    return None # Image is not found in s3 and not found in fixed dir
+
+def read_image_from_s3(session, bucketname, filename, region_name='us-east-1', write_path=None):
 
     """Load image file from s3.
 
@@ -70,9 +122,11 @@ def read_image_from_s3(session, bucketname, filename, region_name='us-east-1'):
     response = object.get()
     file_stream = response['Body']
     im = Image.open(file_stream)
+    if write_path:
+        im.save(write_path)
     return np.array(im)
 
-def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1'):
+def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1', write_path=None):
     """Load image file from s3.
 
     Parameters
@@ -93,11 +147,35 @@ def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1
     response = object.get()
     file_stream = response['Body']
     image = np.asarray(bytearray(file_stream.read()), dtype="uint8")
-    print(image.shape)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    print(write_path)
+    if write_path:
+        cv2.imwrite(write_path, image)
     return image
 
-def read_from_url(url):
+def read_from_url(url, write_path=None):
+    """Load image from URL and write it to a file.
+
+    Parameters
+    ----------
+    bucketname: string
+        Bucket name
+    filename : string
+        Path in s3
+
+    Returns
+    -------
+    np array
+        Image array
+    """
+    response = requests.get(url)
+    image = np.asarray(bytearray(response.content), dtype="uint8")
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    if write_path:
+        cv2.imwrite(write_path, image)
+    return image
+
+def download_from_url(url, path):
     """Load image file from s3.
 
     Parameters
@@ -115,6 +193,7 @@ def read_from_url(url):
     response = requests.get(url)
     image = np.asarray(bytearray(response.content), dtype="uint8")
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    cv2.imwrite(path, image)
     return image
 
 def download_s3_image(session, bucketname, filename, path, region_name='us-east-1'):
@@ -139,6 +218,11 @@ def download_s3_image(session, bucketname, filename, path, region_name='us-east-
     response = object.get()
     file_stream = response['Body']
     im_arr = Image.open(file_stream)
+
+    # save the image using PIL
+    im = Image.fromarray(im_arr)
+    im.save(os.path.join(path, filename))
+
     np.save(os.path.join(path, filename), im_arr)
     return im_arr
 
@@ -192,6 +276,15 @@ def divide_with_overlap(image, output_dir, file_name, max_side=2048, overlap=20)
                 cv2.imwrite(patch_file_path, cv2.cvtColor(patch, cv2.COLOR_RGB2BGR))
             else:
                 cv2.imwrite(patch_file_path, patch)
+
+# fid the fixed dir used to store original images, if it doesn't exist create it
+def find_fixed_dir(fixed_dir=None):
+    if not fixed_dir:
+        fixed_dir = os.path.join(opts.outdir_img2img_samples, "fixed")
+
+    if not os.path.exists(fixed_dir):
+        os.makedirs(fixed_dir)
+    return fixed_dir    
 
 def divide_and_save_from_memory(image, output_dir, ext, max_side):
     def is_prime(number):
@@ -986,13 +1079,13 @@ class Api:
     
     def upscale_preview_api(self, req: models.UpscalePreviewRequest):
 
-        def crop_random(image, size):
-            height, width = image.shape[:2]
-            x = np.random.randint(0, width - size + 1)
-            y = np.random.randint(0, height - size + 1)
-            crop = image[y:y+size, x:x+size]
-            return crop
-    
+        def prepare_args(upscaler_1, upscaler_2, scale):
+            default_args = models.ExtrasBaseRequest()
+            default_args.upscaler_1 = upscaler_1
+            default_args.upscaler_2 = upscaler_2
+            default_args.upscaling_resize = scale
+            return default_args
+
         aws_access_key_id="AKIAT4UQTLJVAI4GD256"
         aws_secret_access_key="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"
         session = boto3.Session(
@@ -1000,40 +1093,60 @@ class Api:
             aws_secret_access_key=aws_secret_access_key,
         )
         bucketname="satupscale"
-        image_path = req.imagePath
+        image_key = req.imageKey
+        image_url = req.imageURL
         client_id = req.client_id
+        original_images_dir = find_fixed_dir("C:\\Users\\super\\ws\\originals")
+        if platform == "linux" or platform == "linux2":
+            original_images_dir = "/tmp/originals"
+        elif platform == "win32":
+            original_images_dir = "C:\\Users\\super\\ws\\originals"
+        original_images_dir = find_fixed_dir(original_images_dir)
+        image_path_no_ext = ""
+        image_ext = ""
+    
+        if image_url != "":
+            image_path_no_ext = image_url.split("/")[-1][:-4]
+            image_ext = image_url.split("/")[-1][-4:]
 
+        elif image_key != "":
+            image_path_no_ext = image_key[:-4]
+            image_ext = image_key[-4:]
 
-        temp_dir = req.temp_dir
-        if temp_dir == "":
-            # create it
-            temp_dir = tempfile.TemporaryDirectory()
-            temp_dir_path = temp_dir.name
+        image_name = image_path_no_ext+image_ext
+        print("image_name: ", image_name)
+        image = get_original_image(original_images_dir, image_url=image_url, image_key=image_key, image_name=image_name, bucketname=bucketname, session=session)
 
-            temp_dir_path = "/workspace/data_24"
-
-            # downaload image from s3
-            im_arr = download_s3_image(session, bucketname, image_path, temp_dir_path)
-
-            if im_arr is None:
-                raise HTTPException(status_code=404, detail="Image not found")
+        # if image:
+        #     raise HTTPException(status_code=404, detail="Image not found")
+        
+        # take a random crop of 128x128 or 64x64 if the image one of the image dimensions is less than 128
+        crop_image = crop_random(image, req.upscaling_resize)
+        result_images = []
+        upscalers_list = req.upscalers_list
+        for idx, upscaler in enumerate(upscalers_list):
+            reqArgs = prepare_args(upscaler, upscaler, req.upscaling_resize)
             
-            # take a random crop of 128x128 or 64x64 if the image one of the image dimensions is less than 128
-            image = crop_random(im_arr, 64)
-            image_pil = Image.fromarray(image)
-            result_images = []
-            for i in range(0, 3):
-                # upscale the cropped image three times, each time with a different upscaler
-                with self.queue_lock:
-                    result = postprocessing.run_extras(extras_mode=0, image=image_pil, image_folder="", input_dir="", output_dir="", save_output=False, **reqDict)
-                    result_images.append(result[0][0])
+            # reqArgsDict = vars(reqArgs)
 
-            return models.UpscalePreviewResponse(images=list(map(encode_pil_to_base64, result_images)), html_info=result[1], temp_dir=temp_dir_path)    
-        else:
-            return models.UpscalePreviewResponse(images=[], html_info="", temp_dir="")
+            reqDict = setUpscalers(reqArgs)
+            print(reqDict)
+            image_pil = Image.fromarray(crop_image)
+            # upscale the cropped image three times, each time with a different upscaler
+            with self.queue_lock:
+                result = postprocessing.run_extras(extras_mode=0, image=image_pil, image_folder="", input_dir="", output_dir="", save_output=False, **reqDict)
+                result_images.append(result[0][0])
+
+        return models.UpscalePreviewResponse(images=list(map(encode_pil_to_base64, result_images)), original_image= encode_pil_to_base64(Image.fromarray(crop_image)), html_info="")    
         
 
     def upscale_api(self, req: models.UpscaleRequest):
+        if platform == "linux" or platform == "linux2":
+            original_images_dir = "/tmp/originals"
+        elif platform == "win32":
+            original_images_dir = "C:\\Users\\super\\ws\\originals"
+        original_images_dir = find_fixed_dir(original_images_dir)
+
         aws_access_key_id="AKIAT4UQTLJVAI4GD256"
         aws_secret_access_key="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"
         session = boto3.Session(
@@ -1048,21 +1161,20 @@ class Api:
         client_id = reqDict.pop('client_id', "")
         image_path_no_ext = ""
         image_ext = ""
-    
+
         if image_url != "":
-            image = read_from_url(image_url)
-            image_path_no_ext = image_path[:-4]
-            image_ext = image_path[-4:]
+            image_path_no_ext = image_url.split("/")[-1][:-4]
+            image_ext = image_url.split("/")[-1][-4:]
 
         elif image_path != "":
-            image = read_image_from_s3_cv2(session, bucketname, image_path)
             image_path_no_ext = image_path[:-4]
             image_ext = image_path[-4:]
 
-        if image is None:
-            raise HTTPException(status_code=404, detail="Image not found")
+        image_name = image_path_no_ext+image_ext
+        print("image_name: ", image_name)
+        image = get_original_image(original_images_dir, image_url=image_url, image_key=image_path, image_name=image_name, bucketname=bucketname, session=session)
 
-        if image_path == "":
+        if image is None:
             raise HTTPException(status_code=404, detail="Image not found")
 
         temp_dir = tempfile.TemporaryDirectory()
