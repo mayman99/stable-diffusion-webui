@@ -171,6 +171,8 @@ def read_from_url(url, write_path=None):
     response = requests.get(url)
     image = np.asarray(bytearray(response.content), dtype="uint8")
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    # Convert BGR to RGB
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     if write_path:
         cv2.imwrite(write_path, image)
     return image
