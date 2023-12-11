@@ -1100,7 +1100,7 @@ class Api:
         client_id = req.client_id
         original_images_dir = find_fixed_dir("C:\\Users\\super\\ws\\originals")
         if platform == "linux" or platform == "linux2":
-            original_images_dir = "/tmp/originals"
+            original_images_dir = "/workspace/originals"
         elif platform == "win32":
             original_images_dir = "C:\\Users\\super\\ws\\originals"
         original_images_dir = find_fixed_dir(original_images_dir)
