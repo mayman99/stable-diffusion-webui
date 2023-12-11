@@ -1104,16 +1104,17 @@ class Api:
         elif platform == "win32":
             original_images_dir = "C:\\Users\\super\\ws\\originals"
         original_images_dir = find_fixed_dir(original_images_dir)
-        image_path_no_ext = ""
+        image_path_no_ext = client_id
         image_ext = ""
     
         if image_url != "":
-            image_path_no_ext = image_url.split("/")[-1][:-4]
+            # image_path_no_ext = image_url.split("/")[-1][:-4]
             image_ext = image_url.split("/")[-1][-4:]
 
         elif image_key != "":
             image_path_no_ext = image_key[:-4]
             image_ext = image_key[-4:]
+
 
         image_name = image_path_no_ext+image_ext
         print("image_name: ", image_name)
@@ -1161,11 +1162,11 @@ class Api:
         image_path = reqDict.pop('imagePath', "")
         image_url = reqDict.pop('imageURL', "")
         client_id = reqDict.pop('client_id', "")
-        image_path_no_ext = ""
+        image_path_no_ext = client_id
         image_ext = ""
 
         if image_url != "":
-            image_path_no_ext = image_url.split("/")[-1][:-4]
+            # image_path_no_ext = image_url.split("/")[-1][:-4]
             image_ext = image_url.split("/")[-1][-4:]
 
         elif image_path != "":
