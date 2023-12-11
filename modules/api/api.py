@@ -1098,7 +1098,7 @@ class Api:
         image_key = req.imageKey
         image_url = req.imageURL
         client_id = req.client_id
-        original_images_dir = find_fixed_dir("C:\\Users\\super\\ws\\originals")
+        original_images_dir = ""
         if platform == "linux" or platform == "linux2":
             original_images_dir = "/workspace/originals"
         elif platform == "win32":
@@ -1113,11 +1113,12 @@ class Api:
 
         elif image_key != "":
             image_path_no_ext = image_key[:-4]
-            image_ext = image_key[-4:]
+            image_ext = "." + image_key[-4:]
 
 
         image_name = image_path_no_ext+image_ext
         print("image_name: ", image_name)
+        print(original_images_dir)
         image = get_original_image(original_images_dir, image_url=image_url, image_key=image_key, image_name=image_name, bucketname=bucketname, session=session)
 
         # if image:
@@ -1171,7 +1172,7 @@ class Api:
 
         elif image_path != "":
             image_path_no_ext = image_path[:-4]
-            image_ext = image_path[-4:]
+            image_ext = "." + image_path[-4:]
 
         image_name = image_path_no_ext+image_ext
         print("image_name: ", image_name)
