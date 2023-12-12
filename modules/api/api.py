@@ -151,6 +151,7 @@ def read_image_from_s3_cv2(session, bucketname, filename, region_name='us-east-1
     print(write_path)
     if write_path:
         cv2.imwrite(write_path, image)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 def read_from_url(url, write_path=None):
