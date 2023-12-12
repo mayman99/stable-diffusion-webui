@@ -547,7 +547,8 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
                 image_path = os.path.join(input_dir, f"{row}_{col}-0000.png")
                 img = Image.open(image_path)
                 final_image.paste(img, (col * image_width, row * image_height))
-        final_image.save(os.path.join(output_dir, "full_result.png"), optimize=True)
+        final_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(output_dir, "full_result.png"), final_image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
         compress_images(output_dir, image_name, session)
         return 1
 
@@ -563,7 +564,8 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
                     image_path = os.path.join(input_dir, f"{row+section*section_rows}_{col}-0000.png")
                     img = Image.open(image_path)
                     final_image.paste(img, (col * image_width, row * image_height))
-            final_image.save(os.path.join(output_dir, f"section_{section}.png"), optimize=True)
+            final_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)
+            cv2.imwrite(os.path.join(output_dir, f"section_{section}.png"), final_image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 
         # Handle the remainder rows
         if remainder > 0:
@@ -573,7 +575,8 @@ def recombine_and_save_images_6(input_dir, output_dir, max_pixels=2369536, quali
                     image_path = os.path.join(input_dir, f"{row+sections*section_rows}_{col}-0000.png")
                     img = Image.open(image_path)
                     final_image.paste(img, (col * image_width, row * image_height))
-            final_image.save(os.path.join(output_dir, f"section_{sections}.png"), optimize=True)
+            final_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)
+            cv2.imwrite(os.path.join(output_dir, f"section_{sections}.png"), final_image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 
         compress_images(output_dir, image_name, session)
         return 1
