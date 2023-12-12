@@ -11,7 +11,7 @@ install_dir="/workspace"
 
 # Commandline arguments for webui.py, for example: export COMMANDLINE_ARGS="--medvram --opt-split-attention"
 # export COMMANDLINE_ARGS="--port 3000 --xformers --skip-install --listen --api --share"
-export COMMANDLINE_ARGS="--port 3000 --xformers --listen --api --share --no-download-sd-model"
+export COMMANDLINE_ARGS="--port 3000 --xformers --listen --api --nowebui --share --no-download-sd-model"
 
 #export XFORMERS_PACKAGE="xformers==0.0.17.dev447"
 
