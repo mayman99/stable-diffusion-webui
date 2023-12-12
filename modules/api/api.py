@@ -84,8 +84,9 @@ def get_original_image(original_images_dir, image_url, image_key, image_name, bu
         if image_name_ == image_name:
             print("image found at fixed dir")
             # if it exists, return it
-            im = Image.open(os.path.join(original_images_dir, image_name))
-            im_arr = np.array(im)
+            # im = Image.open(os.path.join(original_images_dir, image_name))
+            # im_arr = np.array(im)
+            im_arr = cv2.imread(os.path.join(original_images_dir, image_name))
             return im_arr
 
     # if it doesn't exist, download it from s3 or from url
