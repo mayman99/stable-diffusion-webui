@@ -1226,7 +1226,8 @@ class Api:
             try:
                 shared.state.begin(job="Preprocessing")
                 print("image {} aquired lock".format(image_path_no_ext))
-                divide_and_save_from_memory(image, divided_images_path, image_ext, max_side=512)
+                # print(image)
+                divide_and_save_from_memory(np.image(image), divided_images_path, image_ext, max_side=512)
             finally:
                 shared.state.end()
 
