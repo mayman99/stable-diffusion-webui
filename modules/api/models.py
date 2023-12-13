@@ -182,6 +182,7 @@ class UpscalePreviewRequest(BaseModel):
     temp_dir: str = Field(default="", title="Temp dir", description="Temp dir to use for the batch process.")
     upscaling_resize: float = Field(default=2, title="Scale", description="Scale to use for the preview.")
     upscalers_list: List[str] = Field(default=[], title="Upscalers list", description="List of upscalers to use for the preview.")
+    upscalers_params: list[dict] = Field(default=[], title="Upscalers params", description="List of upscalers params to use for the preview.")
 
 class UpscalePreviewResponse(BaseModel):
     original_image: str = Field(title="Original image", description="The original image in base64 format.")
