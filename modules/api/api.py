@@ -1085,6 +1085,7 @@ class Api:
     def upscale_preview_api(self, req: models.UpscalePreviewRequest):
         upscalers_params = req.upscalers_params
         upscalers_list = req.upscalers_list
+        crop_shape = [720, 360]
         def prepare_args(upscaler_1, upscaler_2, scale, extras_upscaler_2_visibility=0.25):
             default_args = models.ExtrasBaseRequest()
             default_args.upscaler_1 = upscaler_1
@@ -1131,27 +1132,35 @@ class Api:
         
         scaling_factor = req.upscaling_resize
         # take a random crop of 128x128 or 64x64 if the image one of the image dimensions is less than 128
-        crop_image = crop_random(image, scaling_factor)
+        crop_image = crop_random(image, scaling_factor, crop_shape)
         result_images = []
+        etas = []
+        ratio = max(image.shape[0], image.shape[1]) / crop_shape[0]
 
         # Alternative approach to reading upscaling params
         for idx, upscaler in enumerate(upscalers_params):
-            print(upscalers_params)
             print(upscaler)
             reqArgs = prepare_args(upscaler['upscaler_1'], upscaler['upscaler_2'], scaling_factor, upscaler['extras_upscaler_2_visibility'])
             reqDict = setUpscalers(reqArgs)
-            print(reqDict)
             image_pil = Image.fromarray(crop_image)
-            # upscale the cropped image three times, each time with a different upscaler
+            # Calculate the time it takes to upscale the image
+            # start the timer
             with self.queue_lock:
+                start = time.time()
                 result = postprocessing.run_extras(extras_mode=0, image=image_pil, image_folder="", input_dir="", output_dir="", save_output=False, **reqDict)
                 result_images.append(result[0][0])
+                # end timer
+                end = time.time()
+                # total time taken
+                eta = end - start
+                # calculate the ratio between crop size and the total image size
+                etas.append(eta*ratio)
 
-        return models.UpscalePreviewResponse(images=list(map(encode_pil_to_base64, result_images)), original_image= encode_pil_to_base64(Image.fromarray(crop_image)), html_info="")    
+        return models.UpscalePreviewResponse(images=list(map(encode_pil_to_base64, result_images)), etas=etas, original_image= encode_pil_to_base64(Image.fromarray(crop_image)), html_info="")    
 
     def upscale_api(self, req: models.UpscaleRequest):
         if platform == "linux" or platform == "linux2":
-            original_images_dir = "/tmp/originals"
+            original_images_dir = "/workspace/originals"
         elif platform == "win32":
             original_images_dir = "C:\\Users\\super\\ws\\originals"
         original_images_dir = find_fixed_dir(original_images_dir)

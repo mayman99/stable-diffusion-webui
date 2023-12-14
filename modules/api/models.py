@@ -187,6 +187,7 @@ class UpscalePreviewRequest(BaseModel):
 class UpscalePreviewResponse(BaseModel):
     original_image: str = Field(title="Original image", description="The original image in base64 format.")
     images: List[str] = Field(title="Images", description="The generated images in base64 format.")
+    etas: List[float] = Field(default=[], title="ETAs", description="The estimated time of processing using each method.")
 
 class ExtrasBatchImagesRequest(ExtrasBaseRequest):
     imageList: List[FileData] = Field(title="Images", description="List of images to work on. Must be Base64 strings")
