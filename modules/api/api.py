@@ -173,8 +173,8 @@ def read_from_url(url, write_path=None):
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     if write_path:
         cv2.imwrite(write_path, image)
-    # Convert BGR to RGB
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # # Convert BGR to RGB
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 def download_from_url(url, path):
@@ -1126,7 +1126,9 @@ class Api:
         print("image_name: ", image_name)
         print(original_images_dir)
         image = get_original_image(original_images_dir, image_url=image_url, image_key=image_key, image_name=image_name, bucketname=bucketname, session=session)
-        image = image[:, :, ::-1]
+        if image_key != "":
+            image = image[:, :, ::-1]
+
         # if image:
         #     raise HTTPException(status_code=404, detail="Image not found")
         
@@ -1191,6 +1193,8 @@ class Api:
         image_name = image_path_no_ext+image_ext
         print("image_name: ", image_name)
         image = get_original_image(original_images_dir, image_url=image_url, image_key=image_path, image_name=image_name, bucketname=bucketname, session=session)
+        if image_url != "":
+            image = image[:, :, ::-1]
 
         if image is None:
             raise HTTPException(status_code=404, detail="Image not found")
